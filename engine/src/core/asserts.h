@@ -13,7 +13,7 @@
 #define debugBreak() __builtin_trap()
 #endif
 
-void report_assertion_failure(const char* expression, const char* message, const char* file, i32 line);
+OKO_API void report_assertion_failure(const char* expression, const char* message, const char* file, i32 line);
 
 #define OKO_ASSERT(expr)                                             \
     {                                                                \

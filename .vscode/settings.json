@@ -50,6 +50,7 @@
 
   "files.associations": {
     "test.h": "c",
-    "vulkan.h": "c"
+    "vulkan.h": "c",
+    "system_error": "c"
   }
 }
