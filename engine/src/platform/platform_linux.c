@@ -143,7 +143,7 @@ OKO_API b8 platform_startup(
     // Flush the stream
     i32 stream_result = xcb_flush(state->connection);
     if (stream_result <= 0) {
-        OKO_FATAL("An error occured when flushing the stream: %d", stream_result);
+        OKO_FATAL("An error occurred when flushing the stream: %d", stream_result);
         return false;
     }
 
