@@ -23,10 +23,7 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, u32 msg, WPARAM w_param, LPARA
 b8 platform_startup(
     platform_state *plat_state,
     const char *application_name,
-    i32 x,
-    i32 y,
-    i32 width,
-    i32 height) {
+    i32 x, i32 y, i32 width, i32 height) {
     plat_state->internal_state = malloc(sizeof(internal_state));
     internal_state *state = (internal_state *)plat_state->internal_state;
 

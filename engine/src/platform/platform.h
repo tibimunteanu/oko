@@ -9,10 +9,7 @@ typedef struct platform_state {
 OKO_API b8 platform_startup(
     platform_state* platform_state,
     const char* application_name,
-    i32 x,
-    i32 y,
-    i32 width,
-    i32 height);
+    i32 x, i32 y, i32 width, i32 height);
 
 OKO_API void platform_shutdown(platform_state* platform_state);
 
