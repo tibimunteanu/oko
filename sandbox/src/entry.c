@@ -2,8 +2,7 @@
 
 #include <entry.h>
 
-// TODO: remove this
-#include <platform/platform.h>
+#include <core/oko_memory.h>
 
 // Define the function to create a game
 b8 create_game(game* out_game) {
@@ -21,7 +20,7 @@ b8 create_game(game* out_game) {
     out_game->on_resize = game_on_resize;
 
     // Create the game state
-    out_game->state = platform_allocate(sizeof(game_state), false);
+    out_game->state = oko_allocate(sizeof(game_state), MEMORY_TAG_GAME);
 
     return true;
 }
