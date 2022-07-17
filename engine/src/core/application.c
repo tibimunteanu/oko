@@ -3,6 +3,7 @@
 
 #include "platform/platform.h"
 #include "core/oko_memory.h"
+#include "core/event.h"
 
 #include "game_types.h"
 
@@ -32,6 +33,11 @@ b8 application_create(game* game_inst) {
 
     app_state.is_running = true;
     app_state.is_suspended = false;
+
+    if (!event_initialize()) {
+        OKO_ERROR("Event system failed to initialize!");
+        return false;
+    }
 
     if (!platform_startup(&app_state.platform, game_inst->app_config.name,
                           game_inst->app_config.start_pos_x, game_inst->app_config.start_pos_y,
@@ -78,6 +84,8 @@ b8 application_run() {
     }
 
     app_state.is_running = false;
+
+    event_shutdown();
 
     platform_shutdown(&app_state.platform);
 
