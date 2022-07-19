@@ -1,8 +1,9 @@
 #pragma once
 
-#include "core/application.h"
 #include "core/log.h"
 #include "core/memory.h"
+#include "core/application.h"
+
 #include "game_types.h"
 
 // Externally-defined function to create a game.

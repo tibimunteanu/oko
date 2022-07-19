@@ -1,6 +1,7 @@
 #include "core/event.h"
 
 #include "core/memory.h"
+
 #include "containers/darray.h"
 
 typedef struct registered_event {

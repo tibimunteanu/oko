@@ -1,10 +1,11 @@
 #include "core/application.h"
-#include "core/log.h"
 
-#include "platform/platform.h"
+#include "core/log.h"
 #include "core/memory.h"
 #include "core/event.h"
 #include "core/input.h"
+
+#include "platform/platform.h"
 
 #include "game_types.h"
 

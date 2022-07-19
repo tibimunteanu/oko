@@ -1,5 +1,7 @@
-#include "log.h"
-#include "assert.h"
+#include "core/log.h"
+
+#include "core/assert.h"
+
 #include "platform/platform.h"
 
 // TODO: temporary

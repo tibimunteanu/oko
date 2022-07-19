@@ -1,6 +1,9 @@
-#include "memory.h"
+#include "core/memory.h"
 
 #include "core/log.h"
+
+#include "containers/string.h"
+
 #include "platform/platform.h"
 
 // TODO: custom string lib
@@ -109,6 +112,6 @@ char* memory_get_usage_string() {
     }
 
     // NOTE: return a dynamically allocated buffer
-    char* out_string = _strdup(buffer);
+    char* out_string = string_duplicate(buffer);
     return out_string;
 }
