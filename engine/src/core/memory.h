@@ -24,16 +24,16 @@ typedef enum memory_tag {
     MEMORY_TAG_MAX_TAGS
 } memory_tag;
 
-void initialize_memory();
-void shutdown_memory();
+OKO_API void memory_initialize();
+OKO_API void memory_shutdown();
 
-OKO_API void* oko_allocate(u64 size, memory_tag tag);
-OKO_API void oko_free(void* block, u64 size, memory_tag tag);
-OKO_API void* oko_zero_memory(void* block, u64 size);
-OKO_API void* oko_copy_memory(void* dest, const void* source, u64 size);
-OKO_API void* oko_set_memory(void* dest, i32 value, u64 size);
+OKO_API void* memory_allocate(u64 size, memory_tag tag);
+OKO_API void memory_free(void* block, u64 size, memory_tag tag);
+OKO_API void* memory_zero(void* block, u64 size);
+OKO_API void* memory_copy(void* dest, const void* source, u64 size);
+OKO_API void* memory_set(void* dest, i32 value, u64 size);
 
-OKO_API char* get_memory_usage_str();
+OKO_API char* memory_get_usage_string();
 
 // NOTE:
 // some low level platform code is still using malloc / free.

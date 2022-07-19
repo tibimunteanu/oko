@@ -1,5 +1,5 @@
-#include "logger.h"
-#include "asserts.h"
+#include "log.h"
+#include "assert.h"
 #include "platform/platform.h"
 
 // TODO: temporary
@@ -9,12 +9,12 @@
 
 #define LOG_ENTRY_MAX_LENGTH 32000
 
-b8 initialize_logging() {
+b8 log_initialize() {
     // TODO: create log file
     return true;
 }
 
-void shutdown_logging() {
+void log_shutdown() {
     // TODO: cleanup logging/write queued entries
 }
 
@@ -22,13 +22,12 @@ void log_output(log_level level, const char* message, ...) {
     const char* level_strings[6] = {"[FATAL]: ", "[ERROR]: ", "[WARN]:  ", "[INFO]:  ", "[DEBUG]: ", "[TRACE]: "};
     b8 is_error = level < LOG_LEVEL_WARN;
 
-    // OKO_ASSERT_DEBUG(strlen(message) < LOG_ENTRY_MAX_LENGTH - 9);
+    OKO_ASSERT_DEBUG(strlen(message) < LOG_ENTRY_MAX_LENGTH - strlen(level_strings[0]));
     char out_message[LOG_ENTRY_MAX_LENGTH];
     memset(out_message, 0, sizeof(out_message));
 
     // Format original message.
-    // NOTE: some compilers may require __builtin_va_list
-    va_list arg_ptr;
+    __builtin_va_list arg_ptr;
     va_start(arg_ptr, message);
     vsnprintf(out_message, LOG_ENTRY_MAX_LENGTH, message, arg_ptr);
     va_end(arg_ptr);

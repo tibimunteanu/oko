@@ -2,7 +2,7 @@
 
 #if OKO_PLATFORM_LINUX
 
-#include "core/logger.h"
+#include "core/log.h"
 
 #include <xcb/xcb.h>
 #include <X11/keysym.h>

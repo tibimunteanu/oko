@@ -1,6 +1,6 @@
 #include "game.h"
 
-#include <core/logger.h>
+#include <core/log.h>
 
 b8 game_initialize(game* game_inst) {
     OKO_DEBUG("game_initialize() called!");

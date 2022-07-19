@@ -1,6 +1,6 @@
 #include "core/event.h"
 
-#include "core/oko_memory.h"
+#include "core/memory.h"
 #include "containers/darray.h"
 
 typedef struct registered_event {
@@ -30,7 +30,7 @@ b8 event_initialize() {
         return false;
     }
     is_initialized = false;
-    oko_zero_memory(&state, sizeof(state));
+    memory_zero(&state, sizeof(state));
 
     is_initialized = true;
 

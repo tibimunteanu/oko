@@ -1,6 +1,6 @@
-#include "oko_memory.h"
+#include "memory.h"
 
-#include "core/logger.h"
+#include "core/log.h"
 #include "platform/platform.h"
 
 // TODO: custom string lib
@@ -33,15 +33,15 @@ static const char* memory_tag_strings[MEMORY_TAG_MAX_TAGS] = {
 
 static struct memory_stats stats;
 
-void initialize_memory() {
+void memory_initialize() {
     platform_zero_memory(&stats, sizeof(stats));
 }
 
-void shutdown_memory() {
+void memory_shutdown() {
     // NOTE: Nothing for now
 }
 
-void* oko_allocate(u64 size, memory_tag tag) {
+void* memory_allocate(u64 size, memory_tag tag) {
     if (tag == MEMORY_TAG_UNKNOWN) {
         OKO_WARN("oko_allocate called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
     }
@@ -55,7 +55,7 @@ void* oko_allocate(u64 size, memory_tag tag) {
     return block;
 }
 
-void oko_free(void* block, u64 size, memory_tag tag) {
+void memory_free(void* block, u64 size, memory_tag tag) {
     if (tag == MEMORY_TAG_UNKNOWN) {
         OKO_WARN("oko_free called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
     }
@@ -67,19 +67,19 @@ void oko_free(void* block, u64 size, memory_tag tag) {
     platform_free(block, false);
 }
 
-void* oko_zero_memory(void* block, u64 size) {
+void* memory_zero(void* block, u64 size) {
     return platform_zero_memory(block, size);
 }
 
-void* oko_copy_memory(void* dest, const void* source, u64 size) {
+void* memory_copy(void* dest, const void* source, u64 size) {
     return platform_copy_memory(dest, source, size);
 }
 
-void* oko_set_memory(void* dest, i32 value, u64 size) {
+void* memory_set(void* dest, i32 value, u64 size) {
     return platform_set_memory(dest, value, size);
 }
 
-char* get_memory_usage_str() {
+char* memory_get_usage_string() {
     const u64 gib = 1024 * 1024 * 1024;
     const u64 mib = 1024 * 1024;
     const u64 kib = 1024;
@@ -109,6 +109,6 @@ char* get_memory_usage_str() {
     }
 
     // NOTE: return a dynamically allocated buffer
-    char* out_string = strdup(buffer);
+    char* out_string = _strdup(buffer);
     return out_string;
 }
