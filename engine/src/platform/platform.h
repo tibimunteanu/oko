@@ -27,3 +27,6 @@ void platform_console_write_error(const char* message, u8 color);
 f64 platform_get_absolute_time();
 
 void platform_sleep(u64 ms);
+
+// Appends the names of required extensions for this platform to the names_darray.
+void platform_get_vk_required_extension_names(const char*** names_darray);
