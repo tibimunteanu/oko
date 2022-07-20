@@ -1,13 +1,13 @@
 #include "renderer/vulkan/vulkan_backend.h"
 
 #include "renderer/vulkan/vulkan_types.h"
+#include "renderer/vulkan/vulkan_device.h"
+#include "renderer/vulkan/vulkan_platform.h"
 
 #include "core/log.h"
 
 #include "containers/string.h"
 #include "containers/darray.h"
-
-#include "platform/platform.h"
 
 // static Vulkan context
 static vulkan_context context;
@@ -36,8 +36,8 @@ b8 vulkan_renderer_backend_initialize(struct renderer_backend* backend,
 
     // Obtain a list of required extensions
     const char** required_extensions = darray_create(const char*);
-    darray_push(required_extensions, &VK_KHR_SURFACE_EXTENSION_NAME);  // Generic surface extension
-    platform_get_vk_required_extension_names(&required_extensions);    // Platform-specific extension(s)
+    darray_push(required_extensions, &VK_KHR_SURFACE_EXTENSION_NAME);    // Generic surface extension
+    platform_get_vulkan_required_extension_names(&required_extensions);  // Platform-specific extension(s)
 #if defined(_DEBUG)
     darray_push(required_extensions, &VK_EXT_DEBUG_UTILS_EXTENSION_NAME);  // Debug utils
 
@@ -112,11 +112,26 @@ b8 vulkan_renderer_backend_initialize(struct renderer_backend* backend,
     debug_create_info.pfnUserCallback = vulkan_debug_callback;
 
     // NOTE: since this is an extension, we have to load a function pointer to it
-    PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkCreateDebugUtilsMessengerEXT");
+    PFN_vkCreateDebugUtilsMessengerEXT func =
+        (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkCreateDebugUtilsMessengerEXT");
     OKO_ASSERT_MSG(func, "Failed to get PFN_vkCreateDebugUtilsMessengerEXT!");
     VK_CHECK(func(context.instance, &debug_create_info, context.allocator, &context.debug_messenger));
     OKO_DEBUG("Vulkan debugger created.");
 #endif
+
+    // Surface creation
+    OKO_DEBUG("Creating Vulkan surface...");
+    if (!platform_create_vulkan_surface(platform_state, &context)) {
+        OKO_ERROR("Failed to create platform surface!");
+        return false;
+    }
+    OKO_DEBUG("Vulkan surface created.");
+
+    // Device creation
+    if (!vulkan_device_create(&context)) {
+        OKO_ERROR("Failed to create vulkan device!");
+        return false;
+    }
 
     OKO_INFO("Vulkan renderer initialized successfully!")
     return true;
@@ -126,7 +141,8 @@ void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
 #if defined(_DEBUG)
     OKO_DEBUG("Destroying Vulkan debugger...");
     if (context.debug_messenger) {
-        PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
+        PFN_vkDestroyDebugUtilsMessengerEXT func =
+            (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
         func(context.instance, context.debug_messenger, context.allocator);
     }
 #endif
