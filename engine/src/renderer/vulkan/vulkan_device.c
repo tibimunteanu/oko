@@ -85,16 +85,25 @@ void vulkan_device_query_swapchain_support(VkPhysicalDevice physical_device,
 }
 
 b8 select_physical_device(vulkan_context* context) {
+    // Get device count
     u32 physical_device_count = 0;
-    VK_CHECK(vkEnumeratePhysicalDevices(context->instance, &physical_device_count, 0));
+    VK_CHECK(vkEnumeratePhysicalDevices(context->instance,
+                                        &physical_device_count,
+                                        0));
     if (physical_device_count == 0) {
         OKO_FATAL("No devices which support Vulkan were found.;")
         return false;
     }
 
+    // Get all devices info
     VkPhysicalDevice physical_devices[physical_device_count];
-    VK_CHECK(vkEnumeratePhysicalDevices(context->instance, &physical_device_count, physical_devices));
+    VK_CHECK(vkEnumeratePhysicalDevices(context->instance,
+                                        &physical_device_count,
+                                        physical_devices));
+
+    // Select the best device
     for (u32 i = 0; i < physical_device_count; i++) {
+        // Query info about the device's properties, features and memory
         VkPhysicalDeviceProperties properties;
         vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
 
@@ -104,18 +113,18 @@ b8 select_physical_device(vulkan_context* context) {
         VkPhysicalDeviceMemoryProperties memory;
         vkGetPhysicalDeviceMemoryProperties(physical_devices[i], &memory);
 
-        // TODO: There requirements should be driven by config
+        // TODO: There requirements should be driven by config, but for now by a struct
         vulkan_physical_device_requirements requirements = {};
         requirements.graphics = true;
         requirements.present = true;
         requirements.transfer = true;
-        // NOTE: Enable this if compute will be required
-        // requirements.compute = true;
+        requirements.compute = true;
         requirements.sampler_anisotropy = true;
         requirements.discrete_gpu = true;
         requirements.device_extension_names = darray_create(const char*);
         darray_push(requirements.device_extension_names, &VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+        // Check the device against the requirements
         vulkan_physical_device_queue_family_info queue_info = {};
         b8 result = physical_device_meets_requirements(physical_devices[i],
                                                        context->surface,
@@ -126,8 +135,10 @@ b8 select_physical_device(vulkan_context* context) {
                                                        &context->device.swapchain_support);
 
         if (result) {
+            // Print some info about the selected device
             OKO_INFO("Selected device: '%s'.", properties.deviceName);
-            // GPU type, etc.
+
+            // GPU info
             switch (properties.deviceType) {
                 default:
                 case VK_PHYSICAL_DEVICE_TYPE_OTHER:
@@ -168,13 +179,14 @@ b8 select_physical_device(vulkan_context* context) {
                 }
             }
 
+            // Save the physical device and queue indices
             context->device.physical_device = physical_devices[i];
             context->device.graphics_queue_index = queue_info.graphics_family_index;
             context->device.present_queue_index = queue_info.present_family_index;
             context->device.compute_queue_index = queue_info.compute_family_index;
             context->device.transfer_queue_index = queue_info.transfer_family_index;
 
-            // Keep a copy of these
+            // Save this other device info
             context->device.properties = properties;
             context->device.features = features;
             context->device.memory = memory;
@@ -212,13 +224,13 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
         }
     }
 
+    // TODO: VK_CHECK?
     u32 queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, 0);
     VkQueueFamilyProperties queue_families[queue_family_count];
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
 
     // Look at each queue and see what queues it supports
-    OKO_INFO("Graphics | Present | Compute | Transfer | Name");
     u8 min_transfer_score = 255;
     for (u32 i = 0; i < queue_family_count; i++) {
         u8 current_transfer_score = 0;
@@ -236,7 +248,7 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
 
         // Transfer queue?
         if (queue_families[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
-            // Take the index if it is the current lowest. This increases the likelihood that it is a dedicated trandfer queue.
+            // Take the index if it is the current lowest. This increases the likelihood that it is a dedicated transfer queue.
             if (current_transfer_score <= min_transfer_score) {
                 min_transfer_score = current_transfer_score;
                 out_queue_info->transfer_family_index = i;
@@ -251,6 +263,7 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
         }
     }
 
+    OKO_INFO("Graphics | Present | Compute | Transfer | Name");
     OKO_INFO("       %d |       %d |       %d |        %d | %s",
              out_queue_info->graphics_family_index,
              out_queue_info->present_family_index,
@@ -258,8 +271,7 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
              out_queue_info->transfer_family_index,
              properties->deviceName);
 
-    if (
-        (!requirements->graphics || (requirements->graphics && out_queue_info->graphics_family_index != -1)) &&
+    if ((!requirements->graphics || (requirements->graphics && out_queue_info->graphics_family_index != -1)) &&
         (!requirements->present || (requirements->present && out_queue_info->present_family_index != -1)) &&
         (!requirements->compute || (requirements->compute && out_queue_info->compute_family_index != -1)) &&
         (!requirements->transfer || (requirements->transfer && out_queue_info->transfer_family_index != -1))) {
@@ -298,6 +310,7 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
                                                               available_extensions));
 
                 u32 required_extensions_count = darray_length(requirements->device_extension_names);
+
                 for (u32 i = 0; i < required_extensions_count; i++) {
                     b8 found = false;
                     for (u32 j = 0; j < available_extension_count; j++) {
