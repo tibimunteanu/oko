@@ -138,6 +138,15 @@ b8 vulkan_renderer_backend_initialize(struct renderer_backend* backend,
 }
 
 void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
+    OKO_DEBUG("Destroying vulkan device...");
+    vulkan_device_destroy(&context);
+
+    OKO_DEBUG("Destroying vulkan surface...");
+    if (context.surface) {
+        vkDestroySurfaceKHR(context.instance, context.surface, context.allocator);
+        context.surface = 0;
+    }
+
 #if defined(_DEBUG)
     OKO_DEBUG("Destroying Vulkan debugger...");
     if (context.debug_messenger) {

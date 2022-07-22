@@ -12,7 +12,6 @@ b8 renderer_initialize(const char* application_name, struct platform_state* plat
 
     // TODO: make this configurable
     renderer_backend_create(RENDERER_BACKEND_VULKAN, platform_state, backend);
-    backend->frame_number = 0;
 
     if (!backend->initialize(backend, application_name, platform_state)) {
         OKO_FATAL("Renderer backend failed to initialize. Shutting down.")

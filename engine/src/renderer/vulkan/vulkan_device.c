@@ -32,15 +32,59 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
                                       vulkan_physical_device_queue_family_info* out_queue_info,
                                       vulkan_swapchain_support_info* out_swapchain_support);
 
+void create_logical_device(vulkan_context* context);
+
 b8 vulkan_device_create(vulkan_context* context) {
     if (!select_physical_device(context)) {
         return false;
     }
 
+    create_logical_device(context);
+
     return true;
 }
 
 void vulkan_device_destroy(vulkan_context* context) {
+    // Unset queues
+    context->device.graphics_queue = 0;
+    context->device.present_queue = 0;
+    context->device.transfer_queue = 0;
+    context->device.compute_queue = 0;
+
+    context->device.graphics_queue_index = -1;
+    context->device.transfer_queue_index = -1;
+    context->device.present_queue_index = -1;
+    context->device.compute_queue_index = -1;
+
+    // Destroy logical device
+    OKO_INFO("Destroying logical device...");
+    if (context->device.logical_device) {
+        vkDestroyDevice(context->device.logical_device, context->allocator);
+        context->device.logical_device = 0;
+    }
+
+    // Physical devices are not destroyed.
+    OKO_INFO("Releasing physical device resources...");
+    context->device.physical_device = 0;
+
+    if (context->device.swapchain_support.formats) {
+        memory_free(context->device.swapchain_support.formats,
+                    sizeof(VkSurfaceFormatKHR) * context->device.swapchain_support.format_count,
+                    MEMORY_TAG_RENDERER);
+        context->device.swapchain_support.formats = 0;
+        context->device.swapchain_support.format_count = 0;
+    }
+
+    if (context->device.swapchain_support.present_modes) {
+        memory_free(context->device.swapchain_support.present_modes,
+                    sizeof(VkPresentModeKHR) * context->device.swapchain_support.present_mode_count,
+                    MEMORY_TAG_RENDERER);
+        context->device.swapchain_support.present_modes = 0;
+        context->device.swapchain_support.present_mode_count = 0;
+    }
+
+    memory_zero(&context->device.swapchain_support.capabilities,
+                sizeof(context->device.swapchain_support.capabilities));
 }
 
 void vulkan_device_query_swapchain_support(VkPhysicalDevice physical_device,
@@ -230,7 +274,7 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
     VkQueueFamilyProperties queue_families[queue_family_count];
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
 
-    // Look at each queue and see what queues it supports
+    // Look at each queue and see what operations it supports
     u8 min_transfer_score = 255;
     for (u32 i = 0; i < queue_family_count; i++) {
         u8 current_transfer_score = 0;
@@ -344,4 +388,85 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
     }
 
     return false;
+}
+
+void create_logical_device(vulkan_context* context) {
+    OKO_INFO("Creating logical device...");
+
+    // NOTE: Don not create additional queues for shared indices.
+    b8 present_shares_graphics_queue = context->device.graphics_queue_index == context->device.present_queue_index;
+    b8 transfer_shares_graphics_queue = context->device.graphics_queue_index == context->device.transfer_queue_index;
+    u32 index_count = 1;
+    if (!present_shares_graphics_queue) {
+        index_count++;
+    }
+    if (!transfer_shares_graphics_queue) {
+        index_count++;
+    }
+    u32 indices[index_count];
+    u8 index = 0;
+    indices[index++] = context->device.graphics_queue_index;
+    if (!present_shares_graphics_queue) {
+        indices[index++] = context->device.present_queue_index;
+    }
+    if (!transfer_shares_graphics_queue) {
+        indices[index++] = context->device.transfer_queue_index;
+    }
+
+    VkDeviceQueueCreateInfo queue_create_infos[index_count];
+    for (u32 i = 0; i < index_count; i++) {
+        queue_create_infos[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queue_create_infos[i].queueFamilyIndex = indices[i];
+        queue_create_infos[i].queueCount = 1;
+        // TODO: Enable this for a future enhancement.
+        // if (indices[i] == context->device.graphics_queue_index) {
+        //     queue_create_infos[i].queueCount = 2;
+        // }
+        queue_create_infos[i].flags = 0;
+        queue_create_infos[i].pNext = 0;
+        f32 queue_priority = 1.0f;
+        queue_create_infos[i].pQueuePriorities = &queue_priority;
+    }
+
+    // Request device features.
+    // TODO: should be config driven
+    VkPhysicalDeviceFeatures device_features = {};
+    device_features.samplerAnisotropy = VK_TRUE;  // Request anisotropy
+
+    VkDeviceCreateInfo device_create_info = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    device_create_info.queueCreateInfoCount = index_count;
+    device_create_info.pQueueCreateInfos = queue_create_infos;
+    device_create_info.pEnabledFeatures = &device_features;
+    device_create_info.enabledExtensionCount = 1;
+    const char* extension_names = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    device_create_info.ppEnabledExtensionNames = &extension_names;
+
+    // Deprecated and ignored, so pass nothing.
+    device_create_info.enabledLayerCount = 0;
+    device_create_info.ppEnabledLayerNames = 0;
+
+    // create the device
+    VK_CHECK(vkCreateDevice(context->device.physical_device,
+                            &device_create_info,
+                            context->allocator,
+                            &context->device.logical_device));
+
+    OKO_INFO("Logical device created.");
+
+    vkGetDeviceQueue(context->device.logical_device,
+                     context->device.graphics_queue_index,
+                     0,
+                     &context->device.graphics_queue);
+
+    vkGetDeviceQueue(context->device.logical_device,
+                     context->device.present_queue_index,
+                     0,
+                     &context->device.present_queue);
+
+    vkGetDeviceQueue(context->device.logical_device,
+                     context->device.transfer_queue_index,
+                     0,
+                     &context->device.transfer_queue);
+
+    // TODO: get compute queue
 }
