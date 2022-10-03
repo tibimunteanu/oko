@@ -25,7 +25,8 @@ typedef struct vulkan_physical_device_queue_family_info {
 } vulkan_physical_device_queue_family_info;
 
 // PRIVATE
-b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surface,
+b8 physical_device_meets_requirements(VkPhysicalDevice device,
+                                      VkSurfaceKHR surface,
                                       const VkPhysicalDeviceProperties* properties,
                                       const VkPhysicalDeviceFeatures* features,
                                       const vulkan_physical_device_requirements* requirements,
@@ -196,7 +197,7 @@ b8 select_physical_device(vulkan_context* context) {
         VkPhysicalDeviceMemoryProperties memory;
         vkGetPhysicalDeviceMemoryProperties(physical_devices[i], &memory);
 
-        // TODO: There requirements should be driven by config, but for now by a struct
+        // TODO: These requirements should be driven by config, but for now by a struct
         vulkan_physical_device_requirements requirements = {};
         requirements.graphics = true;
         requirements.present = true;
@@ -461,4 +462,26 @@ void vulkan_device_query_swapchain_support(VkPhysicalDevice physical_device,
                                                            &out_support_info->present_mode_count,
                                                            out_support_info->present_modes));
     }
+}
+
+b8 vulkan_device_detect_depth_format(vulkan_device* device) {
+    // Format candidates
+    const u32 candidate_count = 3;
+    VkFormat candidates[3] = {
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT};
+
+    u32 flags = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    for (u32 i = 0; i < candidate_count; i++) {
+        VkFormatProperties properties;
+        vkGetPhysicalDeviceFormatProperties(device->physical_device, candidates[i], &properties);
+
+        if (((properties.linearTilingFeatures & flags) == flags) ||
+            ((properties.optimalTilingFeatures & flags) == flags)) {
+            device->depth_format = candidates[i];
+            return true;
+        }
+    }
+    return false;
 }

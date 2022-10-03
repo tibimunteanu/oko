@@ -3,6 +3,7 @@
 #include "renderer/vulkan/vulkan_types.h"
 #include "renderer/vulkan/vulkan_device.h"
 #include "renderer/vulkan/vulkan_platform.h"
+#include "renderer/vulkan/vulkan_swapchain.h"
 
 #include "core/log.h"
 
@@ -17,9 +18,14 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverity
                                                      const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
                                                      void* user_data);
 
+i32 find_memory_index(u32 type_filter, u32 property_flags);
+
 b8 vulkan_renderer_backend_initialize(struct renderer_backend* backend,
                                       const char* application_name,
                                       struct platform_state* platform_state) {
+    // Function pointers
+    context.find_memory_index = find_memory_index;
+
     // TODO: custom allocator
     context.allocator = 0;
 
@@ -133,11 +139,21 @@ b8 vulkan_renderer_backend_initialize(struct renderer_backend* backend,
         return false;
     }
 
+    // Swapchain creation
+    vulkan_swapchain_create(
+        &context,
+        context.framebuffer_width,
+        context.framebuffer_height,
+        &context.swapchain);
+
     OKO_INFO("Vulkan renderer initialized successfully!")
     return true;
 }
 
 void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
+    OKO_DEBUG("Destroying vulkan swapchain...");
+    vulkan_swapchain_destroy(&context, &context.swapchain);
+
     OKO_DEBUG("Destroying vulkan device...");
     vulkan_device_destroy(&context);
 
@@ -191,4 +207,20 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverity
             break;
     }
     return VK_FALSE;
+}
+
+i32 find_memory_index(u32 type_filter, u32 property_flags) {
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(context.device.physical_device, &memory_properties);
+
+    for (u32 i = 0; i < memory_properties.memoryTypeCount; i++) {
+        // Check each memory type to see if its bit is set to 1
+        if (type_filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
+            return i;
+        }
+    }
+
+    OKO_WARN("Unable to find suitable memory type!");
+
+    return -1;
 }

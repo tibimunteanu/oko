@@ -1,5 +1,7 @@
 {
-  "workbench.colorTheme": "Earthsong Contrast (rainglow)",
+  // "workbench.colorTheme": "Earthsong Contrast (rainglow)",
+  // "workbench.colorTheme": "Hyrule Contrast (rainglow)",
+  "workbench.colorTheme": "Gruvbox Dark (Hard)",
   "workbench.colorCustomizations": {
     "editorCursor.foreground": "#00ff33",
     "editor.lineHighlightBackground": "#111144",
