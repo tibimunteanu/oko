@@ -24,230 +24,7 @@ typedef struct vulkan_physical_device_queue_family_info {
     u32 transfer_family_index;
 } vulkan_physical_device_queue_family_info;
 
-b8 select_physical_device(vulkan_context* context);
-b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surface,
-                                      const VkPhysicalDeviceProperties* properties,
-                                      const VkPhysicalDeviceFeatures* features,
-                                      const vulkan_physical_device_requirements* requirements,
-                                      vulkan_physical_device_queue_family_info* out_queue_info,
-                                      vulkan_swapchain_support_info* out_swapchain_support);
-
-void create_logical_device(vulkan_context* context);
-
-b8 vulkan_device_create(vulkan_context* context) {
-    if (!select_physical_device(context)) {
-        return false;
-    }
-
-    create_logical_device(context);
-
-    return true;
-}
-
-void vulkan_device_destroy(vulkan_context* context) {
-    // Unset queues
-    context->device.graphics_queue = 0;
-    context->device.present_queue = 0;
-    context->device.transfer_queue = 0;
-    context->device.compute_queue = 0;
-
-    context->device.graphics_queue_index = -1;
-    context->device.transfer_queue_index = -1;
-    context->device.present_queue_index = -1;
-    context->device.compute_queue_index = -1;
-
-    // Destroy logical device
-    OKO_INFO("Destroying logical device...");
-    if (context->device.logical_device) {
-        vkDestroyDevice(context->device.logical_device, context->allocator);
-        context->device.logical_device = 0;
-    }
-
-    // Physical devices are not destroyed.
-    OKO_INFO("Releasing physical device resources...");
-    context->device.physical_device = 0;
-
-    if (context->device.swapchain_support.formats) {
-        memory_free(context->device.swapchain_support.formats,
-                    sizeof(VkSurfaceFormatKHR) * context->device.swapchain_support.format_count,
-                    MEMORY_TAG_RENDERER);
-        context->device.swapchain_support.formats = 0;
-        context->device.swapchain_support.format_count = 0;
-    }
-
-    if (context->device.swapchain_support.present_modes) {
-        memory_free(context->device.swapchain_support.present_modes,
-                    sizeof(VkPresentModeKHR) * context->device.swapchain_support.present_mode_count,
-                    MEMORY_TAG_RENDERER);
-        context->device.swapchain_support.present_modes = 0;
-        context->device.swapchain_support.present_mode_count = 0;
-    }
-
-    memory_zero(&context->device.swapchain_support.capabilities,
-                sizeof(context->device.swapchain_support.capabilities));
-}
-
-void vulkan_device_query_swapchain_support(VkPhysicalDevice physical_device,
-                                           VkSurfaceKHR surface,
-                                           vulkan_swapchain_support_info* out_support_info) {
-    // Surface capabilities
-    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device,
-                                                       surface,
-                                                       &out_support_info->capabilities));
-
-    // Surface formats
-    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device,
-                                                  surface,
-                                                  &out_support_info->format_count,
-                                                  0));
-    if (out_support_info->format_count != 0) {
-        if (!out_support_info->formats) {
-            out_support_info->formats = memory_allocate(sizeof(VkSurfaceFormatKHR) * out_support_info->format_count,
-                                                        MEMORY_TAG_RENDERER);
-        }
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device,
-                                                      surface,
-                                                      &out_support_info->format_count,
-                                                      out_support_info->formats));
-    }
-
-    // Present modes
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
-                                                       surface,
-                                                       &out_support_info->present_mode_count,
-                                                       0));
-    if (out_support_info->present_mode_count != 0) {
-        if (!out_support_info->present_modes) {
-            out_support_info->present_modes = memory_allocate(sizeof(VkPresentModeKHR) * out_support_info->present_mode_count,
-                                                              MEMORY_TAG_RENDERER);
-        }
-        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
-                                                           surface,
-                                                           &out_support_info->present_mode_count,
-                                                           out_support_info->present_modes));
-    }
-}
-
-b8 select_physical_device(vulkan_context* context) {
-    // Get device count
-    u32 physical_device_count = 0;
-    VK_CHECK(vkEnumeratePhysicalDevices(context->instance,
-                                        &physical_device_count,
-                                        0));
-    if (physical_device_count == 0) {
-        OKO_FATAL("No devices which support Vulkan were found.;")
-        return false;
-    }
-
-    // Get all devices info
-    VkPhysicalDevice physical_devices[physical_device_count];
-    VK_CHECK(vkEnumeratePhysicalDevices(context->instance,
-                                        &physical_device_count,
-                                        physical_devices));
-
-    // Select the best device
-    for (u32 i = 0; i < physical_device_count; i++) {
-        // Query info about the device's properties, features and memory
-        VkPhysicalDeviceProperties properties;
-        vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
-
-        VkPhysicalDeviceFeatures features;
-        vkGetPhysicalDeviceFeatures(physical_devices[i], &features);
-
-        VkPhysicalDeviceMemoryProperties memory;
-        vkGetPhysicalDeviceMemoryProperties(physical_devices[i], &memory);
-
-        // TODO: There requirements should be driven by config, but for now by a struct
-        vulkan_physical_device_requirements requirements = {};
-        requirements.graphics = true;
-        requirements.present = true;
-        requirements.transfer = true;
-        requirements.compute = true;
-        requirements.sampler_anisotropy = true;
-        requirements.discrete_gpu = true;
-        requirements.device_extension_names = darray_create(const char*);
-        darray_push(requirements.device_extension_names, &VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-        // Check the device against the requirements
-        vulkan_physical_device_queue_family_info queue_info = {};
-        b8 result = physical_device_meets_requirements(physical_devices[i],
-                                                       context->surface,
-                                                       &properties,
-                                                       &features,
-                                                       &requirements,
-                                                       &queue_info,
-                                                       &context->device.swapchain_support);
-
-        if (result) {
-            // Print some info about the selected device
-            OKO_INFO("Selected device: '%s'.", properties.deviceName);
-
-            // GPU info
-            switch (properties.deviceType) {
-                default:
-                case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-                    OKO_INFO("GPU type is Unknown.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-                    OKO_INFO("GPU type is Integrated.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-                    OKO_INFO("GPU type is Discrete.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-                    OKO_INFO("GPU type is Virtual.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_CPU:
-                    OKO_INFO("GPU type is CPU.");
-                    break;
-            }
-
-            OKO_INFO("GPU Driver version: %d.%d.%d",
-                     VK_VERSION_MAJOR(properties.driverVersion),
-                     VK_VERSION_MINOR(properties.driverVersion),
-                     VK_VERSION_PATCH(properties.driverVersion));
-
-            // Vulkan API version.
-            OKO_INFO("Vulkan API version: %d.%d.%d",
-                     VK_VERSION_MAJOR(properties.apiVersion),
-                     VK_VERSION_MINOR(properties.apiVersion),
-                     VK_VERSION_PATCH(properties.apiVersion));
-
-            // Memory information
-            for (u32 j = 0; j < memory.memoryHeapCount; j++) {
-                f32 memory_size_gib = (((f32)memory.memoryHeaps[j].size) / 1024.0f / 1024.0f / 1024.0f);
-                if (memory.memoryHeaps[j].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-                    OKO_INFO("Local GPU memory: %.2f GiB", memory_size_gib);
-                } else {
-                    OKO_INFO("Shared System memory: %.2f GiB", memory_size_gib);
-                }
-            }
-
-            // Save the physical device and queue indices
-            context->device.physical_device = physical_devices[i];
-            context->device.graphics_queue_index = queue_info.graphics_family_index;
-            context->device.present_queue_index = queue_info.present_family_index;
-            context->device.compute_queue_index = queue_info.compute_family_index;
-            context->device.transfer_queue_index = queue_info.transfer_family_index;
-
-            // Save this other device info
-            context->device.properties = properties;
-            context->device.features = features;
-            context->device.memory = memory;
-            break;
-        }
-    }
-
-    // Ensure a device was selected
-    if (!context->device.physical_device) {
-        OKO_ERROR("No physical devices were found which meet the requirements.");
-        return false;
-    }
-
-    OKO_INFO("Physical device selected.");
-    return true;
-}
-
+// PRIVATE
 b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surface,
                                       const VkPhysicalDeviceProperties* properties,
                                       const VkPhysicalDeviceFeatures* features,
@@ -390,6 +167,126 @@ b8 physical_device_meets_requirements(VkPhysicalDevice device, VkSurfaceKHR surf
     return false;
 }
 
+b8 select_physical_device(vulkan_context* context) {
+    // Get device count
+    u32 physical_device_count = 0;
+    VK_CHECK(vkEnumeratePhysicalDevices(context->instance,
+                                        &physical_device_count,
+                                        0));
+    if (physical_device_count == 0) {
+        OKO_FATAL("No devices which support Vulkan were found.;")
+        return false;
+    }
+
+    // Get all devices info
+    VkPhysicalDevice physical_devices[physical_device_count];
+    VK_CHECK(vkEnumeratePhysicalDevices(context->instance,
+                                        &physical_device_count,
+                                        physical_devices));
+
+    // Select the best device
+    for (u32 i = 0; i < physical_device_count; i++) {
+        // Query info about the device's properties, features and memory
+        VkPhysicalDeviceProperties properties;
+        vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
+
+        VkPhysicalDeviceFeatures features;
+        vkGetPhysicalDeviceFeatures(physical_devices[i], &features);
+
+        VkPhysicalDeviceMemoryProperties memory;
+        vkGetPhysicalDeviceMemoryProperties(physical_devices[i], &memory);
+
+        // TODO: There requirements should be driven by config, but for now by a struct
+        vulkan_physical_device_requirements requirements = {};
+        requirements.graphics = true;
+        requirements.present = true;
+        requirements.transfer = true;
+        requirements.compute = true;
+        requirements.sampler_anisotropy = true;
+        requirements.discrete_gpu = true;
+        requirements.device_extension_names = darray_create(const char*);
+        darray_push(requirements.device_extension_names, &VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+        // Check the device against the requirements
+        vulkan_physical_device_queue_family_info queue_info = {};
+        b8 result = physical_device_meets_requirements(physical_devices[i],
+                                                       context->surface,
+                                                       &properties,
+                                                       &features,
+                                                       &requirements,
+                                                       &queue_info,
+                                                       &context->device.swapchain_support);
+
+        if (result) {
+            // Print some info about the selected device
+            OKO_INFO("Selected device: '%s'.", properties.deviceName);
+
+            // GPU info
+            switch (properties.deviceType) {
+                default:
+                case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+                    OKO_INFO("GPU type is Unknown.");
+                    break;
+                case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+                    OKO_INFO("GPU type is Integrated.");
+                    break;
+                case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+                    OKO_INFO("GPU type is Discrete.");
+                    break;
+                case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+                    OKO_INFO("GPU type is Virtual.");
+                    break;
+                case VK_PHYSICAL_DEVICE_TYPE_CPU:
+                    OKO_INFO("GPU type is CPU.");
+                    break;
+            }
+
+            OKO_INFO("GPU Driver version: %d.%d.%d",
+                     VK_VERSION_MAJOR(properties.driverVersion),
+                     VK_VERSION_MINOR(properties.driverVersion),
+                     VK_VERSION_PATCH(properties.driverVersion));
+
+            // Vulkan API version.
+            OKO_INFO("Vulkan API version: %d.%d.%d",
+                     VK_VERSION_MAJOR(properties.apiVersion),
+                     VK_VERSION_MINOR(properties.apiVersion),
+                     VK_VERSION_PATCH(properties.apiVersion));
+
+            // Memory information
+            for (u32 j = 0; j < memory.memoryHeapCount; j++) {
+                f32 memory_size_gib = (((f32)memory.memoryHeaps[j].size) / 1024.0f / 1024.0f / 1024.0f);
+                if (memory.memoryHeaps[j].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+                    OKO_INFO("Local GPU memory: %.2f GiB", memory_size_gib);
+                } else {
+                    OKO_INFO("Shared System memory: %.2f GiB", memory_size_gib);
+                }
+            }
+
+            // Save the physical device and queue indices
+            context->device.physical_device = physical_devices[i];
+            context->device.graphics_queue_index = queue_info.graphics_family_index;
+            context->device.present_queue_index = queue_info.present_family_index;
+            context->device.compute_queue_index = queue_info.compute_family_index;
+            context->device.transfer_queue_index = queue_info.transfer_family_index;
+
+            // Save this other device info
+            context->device.properties = properties;
+            context->device.features = features;
+            context->device.memory = memory;
+            break;
+        }
+    }
+
+    // Ensure a device was selected
+    if (!context->device.physical_device) {
+        OKO_ERROR("No physical devices were found which meet the requirements.");
+        return false;
+    }
+
+    OKO_INFO("Physical device selected.");
+    return true;
+}
+
 void create_logical_device(vulkan_context* context) {
     OKO_INFO("Creating logical device...");
 
@@ -469,4 +366,99 @@ void create_logical_device(vulkan_context* context) {
                      &context->device.transfer_queue);
 
     // TODO: get compute queue
+}
+
+// PUBLIC
+b8 vulkan_device_create(vulkan_context* context) {
+    if (!select_physical_device(context)) {
+        return false;
+    }
+
+    create_logical_device(context);
+
+    return true;
+}
+
+void vulkan_device_destroy(vulkan_context* context) {
+    // Unset queues
+    context->device.graphics_queue = 0;
+    context->device.present_queue = 0;
+    context->device.transfer_queue = 0;
+    context->device.compute_queue = 0;
+
+    context->device.graphics_queue_index = -1;
+    context->device.transfer_queue_index = -1;
+    context->device.present_queue_index = -1;
+    context->device.compute_queue_index = -1;
+
+    // Destroy logical device
+    OKO_INFO("Destroying logical device...");
+    if (context->device.logical_device) {
+        vkDestroyDevice(context->device.logical_device, context->allocator);
+        context->device.logical_device = 0;
+    }
+
+    // Physical devices are not destroyed.
+    OKO_INFO("Releasing physical device resources...");
+    context->device.physical_device = 0;
+
+    if (context->device.swapchain_support.formats) {
+        memory_free(context->device.swapchain_support.formats,
+                    sizeof(VkSurfaceFormatKHR) * context->device.swapchain_support.format_count,
+                    MEMORY_TAG_RENDERER);
+        context->device.swapchain_support.formats = 0;
+        context->device.swapchain_support.format_count = 0;
+    }
+
+    if (context->device.swapchain_support.present_modes) {
+        memory_free(context->device.swapchain_support.present_modes,
+                    sizeof(VkPresentModeKHR) * context->device.swapchain_support.present_mode_count,
+                    MEMORY_TAG_RENDERER);
+        context->device.swapchain_support.present_modes = 0;
+        context->device.swapchain_support.present_mode_count = 0;
+    }
+
+    memory_zero(&context->device.swapchain_support.capabilities,
+                sizeof(context->device.swapchain_support.capabilities));
+}
+
+void vulkan_device_query_swapchain_support(VkPhysicalDevice physical_device,
+                                           VkSurfaceKHR surface,
+                                           vulkan_swapchain_support_info* out_support_info) {
+    // Surface capabilities
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device,
+                                                       surface,
+                                                       &out_support_info->capabilities));
+
+    // Surface formats
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device,
+                                                  surface,
+                                                  &out_support_info->format_count,
+                                                  0));
+    if (out_support_info->format_count != 0) {
+        if (!out_support_info->formats) {
+            out_support_info->formats = memory_allocate(sizeof(VkSurfaceFormatKHR) * out_support_info->format_count,
+                                                        MEMORY_TAG_RENDERER);
+        }
+        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device,
+                                                      surface,
+                                                      &out_support_info->format_count,
+                                                      out_support_info->formats));
+    }
+
+    // Present modes
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
+                                                       surface,
+                                                       &out_support_info->present_mode_count,
+                                                       0));
+    if (out_support_info->present_mode_count != 0) {
+        if (!out_support_info->present_modes) {
+            out_support_info->present_modes = memory_allocate(sizeof(VkPresentModeKHR) * out_support_info->present_mode_count,
+                                                              MEMORY_TAG_RENDERER);
+        }
+        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
+                                                           surface,
+                                                           &out_support_info->present_mode_count,
+                                                           out_support_info->present_modes));
+    }
 }

@@ -1,7 +1,6 @@
 #pragma once
 
-#include <defines.h>
-#include <game_types.h>
+#include <oko.h>
 
 typedef struct game_state {
     f32 delta_time;
