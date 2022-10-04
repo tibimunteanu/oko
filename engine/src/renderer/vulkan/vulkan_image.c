@@ -75,7 +75,12 @@ void vulkan_image_create(
     // Create view
     if (create_view) {
         out_image->view = 0;
-        vulkan_image_view_create(context, format, out_image, view_aspect_flags);
+
+        vulkan_image_view_create(
+            context,
+            format,
+            out_image,
+            view_aspect_flags);
     }
 }
 
@@ -109,17 +114,29 @@ void vulkan_image_destroy(
     vulkan_image* image) {
     //
     if (image->view) {
-        vkDestroyImageView(context->device.logical_device, image->view, context->allocator);
+        vkDestroyImageView(
+            context->device.logical_device,
+            image->view,
+            context->allocator);
+
         image->view = 0;
     }
 
     if (image->memory) {
-        vkFreeMemory(context->device.logical_device, image->memory, context->allocator);
+        vkFreeMemory(
+            context->device.logical_device,
+            image->memory,
+            context->allocator);
+
         image->memory = 0;
     }
 
     if (image->handle) {
-        vkDestroyImage(context->device.logical_device, image->handle, context->allocator);
+        vkDestroyImage(
+            context->device.logical_device,
+            image->handle,
+            context->allocator);
+
         image->handle = 0;
     }
 }

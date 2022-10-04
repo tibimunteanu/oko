@@ -7,7 +7,10 @@
 // Backend render context
 static renderer_backend* backend = 0;
 
-b8 renderer_initialize(const char* application_name, struct platform_state* platform_state) {
+b8 renderer_initialize(
+    const char* application_name,
+    struct platform_state* platform_state) {
+    //
     backend = memory_allocate(sizeof(renderer_backend), MEMORY_TAG_RENDERER);
 
     // TODO: make this configurable

@@ -6,7 +6,12 @@
 #include "renderer/vulkan/vulkan_device.h"
 
 // PRIVATE
-void create(vulkan_context* context, u32 width, u32 height, vulkan_swapchain* swapchain) {
+void create(
+    vulkan_context* context,
+    u32 width,
+    u32 height,
+    vulkan_swapchain* swapchain) {
+    //
     VkExtent2D swapchain_extent = {width, height};
     swapchain->max_frames_in_flight = 2;
 
@@ -45,7 +50,7 @@ void create(vulkan_context* context, u32 width, u32 height, vulkan_swapchain* sw
         &context->device.swapchain_support);
 
     // Swapchain extent
-    if (context->device.swapchain_support.capabilities.currentExtent.width != UINT32_MAX) {
+    if (context->device.swapchain_support.capabilities.currentExtent.width != __UINT32_MAX__) {
         swapchain_extent = context->device.swapchain_support.capabilities.currentExtent;
     }
 
@@ -154,7 +159,10 @@ void create(vulkan_context* context, u32 width, u32 height, vulkan_swapchain* sw
     OKO_INFO("Swapchain created successfully.");
 }
 
-void destroy(vulkan_context* context, vulkan_swapchain* swapchain) {
+void destroy(
+    vulkan_context* context,
+    vulkan_swapchain* swapchain) {
+    //
     vulkan_image_destroy(context, &swapchain->depth_attachment);
 
     // Only destroy the views, not the images, since those are owned by the swapchain and are thus destroyed when it is.

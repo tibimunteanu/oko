@@ -25,13 +25,15 @@ typedef struct vulkan_physical_device_queue_family_info {
 } vulkan_physical_device_queue_family_info;
 
 // PRIVATE
-b8 physical_device_meets_requirements(VkPhysicalDevice device,
-                                      VkSurfaceKHR surface,
-                                      const VkPhysicalDeviceProperties* properties,
-                                      const VkPhysicalDeviceFeatures* features,
-                                      const vulkan_physical_device_requirements* requirements,
-                                      vulkan_physical_device_queue_family_info* out_queue_info,
-                                      vulkan_swapchain_support_info* out_swapchain_support) {
+b8 physical_device_meets_requirements(
+    VkPhysicalDevice device,
+    VkSurfaceKHR surface,
+    const VkPhysicalDeviceProperties* properties,
+    const VkPhysicalDeviceFeatures* features,
+    const vulkan_physical_device_requirements* requirements,
+    vulkan_physical_device_queue_family_info* out_queue_info,
+    vulkan_swapchain_support_info* out_swapchain_support) {
+    //
     // Evaluate device properties to determine if it meets the requirements of the app
     out_queue_info->graphics_family_index = -1;
     out_queue_info->present_family_index = -1;
@@ -423,9 +425,11 @@ void vulkan_device_destroy(vulkan_context* context) {
                 sizeof(context->device.swapchain_support.capabilities));
 }
 
-void vulkan_device_query_swapchain_support(VkPhysicalDevice physical_device,
-                                           VkSurfaceKHR surface,
-                                           vulkan_swapchain_support_info* out_support_info) {
+void vulkan_device_query_swapchain_support(
+    VkPhysicalDevice physical_device,
+    VkSurfaceKHR surface,
+    vulkan_swapchain_support_info* out_support_info) {
+    //
     // Surface capabilities
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device,
                                                        surface,

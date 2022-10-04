@@ -4,6 +4,7 @@
 #include "renderer/vulkan/vulkan_device.h"
 #include "renderer/vulkan/vulkan_platform.h"
 #include "renderer/vulkan/vulkan_swapchain.h"
+#include "renderer/vulkan/vulkan_renderpass.h"
 
 #include "core/log.h"
 
@@ -13,16 +14,56 @@
 // static Vulkan context
 static vulkan_context context;
 
-VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                                                     VkDebugUtilsMessageTypeFlagsEXT message_types,
-                                                     const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-                                                     void* user_data);
+// PRIVATE
+VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+    VkDebugUtilsMessageTypeFlagsEXT message_types,
+    const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+    void* user_data) {
+    //
+    switch (message_severity) {
+        default:
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+            OKO_ERROR(callback_data->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+            OKO_WARN(callback_data->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+            OKO_INFO(callback_data->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+            OKO_TRACE(callback_data->pMessage);
+            break;
+    }
+    return VK_FALSE;
+}
 
-i32 find_memory_index(u32 type_filter, u32 property_flags);
+i32 find_memory_index(
+    u32 type_filter,
+    u32 property_flags) {
+    //
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(context.device.physical_device, &memory_properties);
 
-b8 vulkan_renderer_backend_initialize(struct renderer_backend* backend,
-                                      const char* application_name,
-                                      struct platform_state* platform_state) {
+    for (u32 i = 0; i < memory_properties.memoryTypeCount; i++) {
+        // Check each memory type to see if its bit is set to 1
+        if (type_filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
+            return i;
+        }
+    }
+
+    OKO_WARN("Unable to find suitable memory type!");
+
+    return -1;
+}
+
+// PUBLIC
+b8 vulkan_renderer_backend_initialize(
+    struct renderer_backend* backend,
+    const char* application_name,
+    struct platform_state* platform_state) {
+    //
     // Function pointers
     context.find_memory_index = find_memory_index;
 
@@ -146,11 +187,25 @@ b8 vulkan_renderer_backend_initialize(struct renderer_backend* backend,
         context.framebuffer_height,
         &context.swapchain);
 
+    // Renderpass creation
+    vulkan_renderpass_create(
+        &context,
+        &context.main_renderpass,
+        0, 0, context.framebuffer_width, context.framebuffer_height,
+        0.0f, 0.0f, 0.2f, 1.0f,
+        1.0f,
+        0);
+
     OKO_INFO("Vulkan renderer initialized successfully!")
     return true;
 }
 
-void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
+void vulkan_renderer_backend_shutdown(
+    struct renderer_backend* backend) {
+    //
+    OKO_DEBUG("Destroying vulkan renderpass...");
+    vulkan_renderpass_destroy(&context, &context.main_renderpass);
+
     OKO_DEBUG("Destroying vulkan swapchain...");
     vulkan_swapchain_destroy(&context, &context.swapchain);
 
@@ -176,51 +231,23 @@ void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
     vkDestroyInstance(context.instance, context.allocator);
 }
 
-void vulkan_renderer_backend_resized(struct renderer_backend* backend, u16 width, u16 height) {
+void vulkan_renderer_backend_resized(
+    struct renderer_backend* backend,
+    u16 width,
+    u16 height) {
+    //
 }
 
-b8 vulkan_renderer_backend_begin_frame(struct renderer_backend* backend, f32 delta_time) {
+b8 vulkan_renderer_backend_begin_frame(
+    struct renderer_backend* backend,
+    f32 delta_time) {
+    //
     return true;
 }
 
-b8 vulkan_renderer_backend_end_frame(struct renderer_backend* backend, f32 delta_time) {
+b8 vulkan_renderer_backend_end_frame(
+    struct renderer_backend* backend,
+    f32 delta_time) {
+    //
     return true;
-}
-
-VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                                                     VkDebugUtilsMessageTypeFlagsEXT message_types,
-                                                     const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-                                                     void* user_data) {
-    switch (message_severity) {
-        default:
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-            OKO_ERROR(callback_data->pMessage);
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-            OKO_WARN(callback_data->pMessage);
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-            OKO_INFO(callback_data->pMessage);
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-            OKO_TRACE(callback_data->pMessage);
-            break;
-    }
-    return VK_FALSE;
-}
-
-i32 find_memory_index(u32 type_filter, u32 property_flags) {
-    VkPhysicalDeviceMemoryProperties memory_properties;
-    vkGetPhysicalDeviceMemoryProperties(context.device.physical_device, &memory_properties);
-
-    for (u32 i = 0; i < memory_properties.memoryTypeCount; i++) {
-        // Check each memory type to see if its bit is set to 1
-        if (type_filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
-            return i;
-        }
-    }
-
-    OKO_WARN("Unable to find suitable memory type!");
-
-    return -1;
 }

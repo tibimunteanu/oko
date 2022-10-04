@@ -27,9 +27,44 @@ static b8 initialized = false;
 static application_state app_state;
 
 // Event handlers
-b8 application_on_event(u16 code, void* sender, void* listener_inst, event_context context);
-b8 application_on_key(u16 code, void* sender, void* listener_inst, event_context context);
+b8 application_on_event(u16 code, void* sender, void* listener_inst, event_context context) {
+    switch (code) {
+        case EVENT_APPLICATION_QUIT: {
+            OKO_INFO("EVENT_APPLICATION_QUIT received, shutting down");
+            app_state.is_running = false;
+            return true;
+        }
+    }
+    return false;
+}
 
+b8 application_on_key(u16 code, void* sender, void* listener_inst, event_context context) {
+    if (code == EVENT_KEY_PRESSED) {
+        u16 key_code = context.data.u16[0];
+        if (key_code == KEY_ESCAPE) {
+            // NOTE: Technically firing an event to itself, but there may be other listeners
+            event_context data = {};
+            event_fire(EVENT_APPLICATION_QUIT, 0, data);
+
+            // Block anything else from processing this
+            return true;
+        } else if (key_code == KEY_A) {
+            OKO_DEBUG("Explicit - A key pressed!");
+        } else {
+            OKO_DEBUG("'%c' key pressed!", key_code);
+        }
+    } else if (code == EVENT_KEY_RELEASED) {
+        u16 key_code = context.data.u16[0];
+        if (key_code == KEY_B) {
+            OKO_DEBUG("Explicit - B key released!");
+        } else {
+            OKO_DEBUG("'%c' key released!", key_code);
+        }
+    }
+    return false;
+}
+
+// PUBLIC
 b8 application_create(game* game_inst) {
     if (initialized) {
         OKO_ERROR("application_create called more than once!");
@@ -159,40 +194,4 @@ b8 application_run() {
     platform_shutdown(&app_state.platform);
 
     return true;
-}
-
-b8 application_on_event(u16 code, void* sender, void* listener_inst, event_context context) {
-    switch (code) {
-        case EVENT_APPLICATION_QUIT: {
-            OKO_INFO("EVENT_APPLICATION_QUIT received, shutting down");
-            app_state.is_running = false;
-            return true;
-        }
-    }
-    return false;
-}
-b8 application_on_key(u16 code, void* sender, void* listener_inst, event_context context) {
-    if (code == EVENT_KEY_PRESSED) {
-        u16 key_code = context.data.u16[0];
-        if (key_code == KEY_ESCAPE) {
-            // NOTE: Technically firing an event to itself, but there may be other listeners
-            event_context data = {};
-            event_fire(EVENT_APPLICATION_QUIT, 0, data);
-
-            // Block anything else from processing this
-            return true;
-        } else if (key_code == KEY_A) {
-            OKO_DEBUG("Explicit - A key pressed!");
-        } else {
-            OKO_DEBUG("'%c' key pressed!", key_code);
-        }
-    } else if (code == EVENT_KEY_RELEASED) {
-        u16 key_code = context.data.u16[0];
-        if (key_code == KEY_B) {
-            OKO_DEBUG("Explicit - B key released!");
-        } else {
-            OKO_DEBUG("'%c' key released!", key_code);
-        }
-    }
-    return false;
 }
