@@ -163,6 +163,8 @@ void destroy(
     vulkan_context* context,
     vulkan_swapchain* swapchain) {
     //
+    vkDeviceWaitIdle(context->device.logical_device);
+
     vulkan_image_destroy(context, &swapchain->depth_attachment);
 
     // Only destroy the views, not the images, since those are owned by the swapchain and are thus destroyed when it is.
@@ -252,4 +254,7 @@ void vulkan_swapchain_present(
     } else if (result != VK_SUCCESS) {
         OKO_FATAL("Failed to present swapchain image!");
     }
+
+    // Increment (and loop) the index
+    context->current_frame = (context->current_frame + 1) % swapchain->max_frames_in_flight;
 }

@@ -231,7 +231,17 @@ OKO_API b8 platform_pump_messages(platform_state* platform_state) {
                 input_process_mouse_move(move_event->event_x, move_event->event_y);
             } break;
             case XCB_CONFIGURE_NOTIFY: {
-                // TODO: Resizing
+                // Resizing - note that this is also triggered by moving the window, but should be
+                // passed anyway since a change in the x/y could mean an upper-left resize.
+                // The application layer can decide what to do with this.
+                xcb_configure_notify_event_t* configure_event = (xcb_configure_notify_event_t*)event;
+
+                // Fire the event. The application layer should pick this up, but not handle it
+                // as it should be visible to other parts of the application
+                event_context context;
+                context.data.u16[0] = (u16)width;
+                context.data.u16[1] = (u16)height;
+                event_fire(EVENT_RESIZED, 0, context);
             } break;
             case XCB_CLIENT_MESSAGE: {
                 cm = (xcb_client_message_event_t*)event;

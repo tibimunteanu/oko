@@ -26,6 +26,11 @@ typedef struct application_state {
 static b8 initialized = false;
 static application_state app_state;
 
+void application_get_framebuffer_size(u32* width, u32* height) {
+    *width = app_state.width;
+    *height = app_state.height;
+}
+
 // Event handlers
 b8 application_on_event(u16 code, void* sender, void* listener_inst, event_context context) {
     switch (code) {
@@ -64,6 +69,38 @@ b8 application_on_key(u16 code, void* sender, void* listener_inst, event_context
     return false;
 }
 
+b8 application_on_resized(u16 code, void* sender, void* listener_inst, event_context context) {
+    if (code == EVENT_RESIZED) {
+        u16 width = context.data.u16[0];
+        u16 height = context.data.u16[1];
+
+        // Check if different. If so, trigger a resize event
+        if (width != app_state.width || height != app_state.height) {
+            app_state.width = width;
+            app_state.height = height;
+
+            OKO_DEBUG("Window resize: %i %i", width, height);
+
+            // Handle minimization
+            if (width == 0 || height == 0) {
+                OKO_INFO("Window minimized. Suspending application.");
+                app_state.is_suspended = true;
+                return true;
+            } else {
+                if (app_state.is_suspended) {
+                    OKO_INFO("Window restored. Resuming application.");
+                    app_state.is_suspended = false;
+                }
+                app_state.game_inst->on_resize(app_state.game_inst, width, height);
+                renderer_on_resized(width, height);
+            }
+        }
+    }
+
+    // Event purposely not handled to allow other listeners to get this
+    return false;
+}
+
 // PUBLIC
 b8 application_create(game* game_inst) {
     if (initialized) {
@@ -88,10 +125,15 @@ b8 application_create(game* game_inst) {
     event_register(EVENT_APPLICATION_QUIT, 0, application_on_event);
     event_register(EVENT_KEY_PRESSED, 0, application_on_key);
     event_register(EVENT_KEY_RELEASED, 0, application_on_key);
+    event_register(EVENT_RESIZED, 0, application_on_resized);
 
-    if (!platform_startup(&app_state.platform, game_inst->app_config.name,
-                          game_inst->app_config.start_pos_x, game_inst->app_config.start_pos_y,
-                          game_inst->app_config.start_width, game_inst->app_config.start_height)) {
+    if (!platform_startup(
+            &app_state.platform,
+            game_inst->app_config.name,
+            game_inst->app_config.start_pos_x,
+            game_inst->app_config.start_pos_y,
+            game_inst->app_config.start_width,
+            game_inst->app_config.start_height)) {
         return false;
     }
 
