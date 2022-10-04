@@ -5,8 +5,10 @@
 #include "renderer/vulkan/vulkan_platform.h"
 #include "renderer/vulkan/vulkan_swapchain.h"
 #include "renderer/vulkan/vulkan_renderpass.h"
+#include "renderer/vulkan/vulkan_command_buffer.h"
 
 #include "core/log.h"
+#include "core/memory.h"
 
 #include "containers/string.h"
 #include "containers/darray.h"
@@ -56,6 +58,32 @@ i32 find_memory_index(
     OKO_WARN("Unable to find suitable memory type!");
 
     return -1;
+}
+
+void create_command_buffers(renderer_backend* backend) {
+    if (!context.graphics_command_buffers) {
+        context.graphics_command_buffers = darray_reserve(vulkan_command_buffer, context.swapchain.image_count);
+        for (u32 i = 0; i < context.swapchain.image_count; i++) {
+            memory_zero(&context.graphics_command_buffers[i], sizeof(vulkan_command_buffer));
+        }
+    }
+
+    for (u32 i = 0; i < context.swapchain.image_count; i++) {
+        if (context.graphics_command_buffers[i].handle) {
+            vulkan_command_buffer_free(
+                &context,
+                context.device.graphics_command_pool,
+                &context.graphics_command_buffers[i]);
+        }
+        memory_zero(&context.graphics_command_buffers[i], sizeof(vulkan_command_buffer));
+        vulkan_command_buffer_allocate(
+            &context,
+            context.device.graphics_command_pool,
+            true,  // is_primary
+            &context.graphics_command_buffers[i]);
+    }
+
+    OKO_INFO("Command buffers created.");
 }
 
 // PUBLIC
@@ -196,6 +224,9 @@ b8 vulkan_renderer_backend_initialize(
         1.0f,
         0);
 
+    // Create command buffers
+    create_command_buffers(backend);
+
     OKO_INFO("Vulkan renderer initialized successfully!")
     return true;
 }
@@ -203,6 +234,17 @@ b8 vulkan_renderer_backend_initialize(
 void vulkan_renderer_backend_shutdown(
     struct renderer_backend* backend) {
     //
+    OKO_DEBUG("Destroying vulkan command buffers...");
+    for (u32 i = 0; i < context.swapchain.image_count; i++) {
+        vulkan_command_buffer_free(
+            &context,
+            context.device.graphics_command_pool,
+            &context.graphics_command_buffers[i]);
+        context.graphics_command_buffers[i].handle = 0;
+    }
+    darray_destroy(context.graphics_command_buffers);
+    context.graphics_command_buffers = 0;
+
     OKO_DEBUG("Destroying vulkan renderpass...");
     vulkan_renderpass_destroy(&context, &context.main_renderpass);
 
