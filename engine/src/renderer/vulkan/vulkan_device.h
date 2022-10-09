@@ -3,6 +3,7 @@
 #include "renderer/vulkan/vulkan_types.h"
 
 b8 vulkan_device_create(vulkan_context* context);
+
 void vulkan_device_destroy(vulkan_context* context);
 
 void vulkan_device_query_swapchain_support(

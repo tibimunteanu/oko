@@ -1,21 +1,21 @@
 #!/bin/bash
-# Build everything
+# Clean everything
 set echo on
 
-echo "Building everything..."
+echo "Cleaning everything..."
 
-make -f Makefile.engine.linux.mak all
+make -f Makefile.engine.linux.mak clean
 ERRORLEVEL=$?
 if [ $ERRORLEVEL -ne 0 ]
 then
 echo "Error:"$ERRORLEVEL && exit
 fi
 
-make -f Makefile.sandbox.linux.mak all
+make -f Makefile.sandbox.linux.mak clean
 ERRORLEVEL=$?
 if [ $ERRORLEVEL -ne 0 ]
 then
 echo "Error:"$ERRORLEVEL && exit
 fi
 
-echo "All assemblies built successfully."
+echo "All assemblies cleaned successfully."
