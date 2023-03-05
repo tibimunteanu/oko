@@ -78,18 +78,20 @@ void create(
 
     // Setup the queue family indices
     if (context->device.graphics_queue_index != context->device.present_queue_index) {
+        // we share
         u32 queueFamilyIndices[] = {(u32)context->device.graphics_queue_index, (u32)context->device.present_queue_index};
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         swapchain_create_info.queueFamilyIndexCount = 2;
         swapchain_create_info.pQueueFamilyIndices = queueFamilyIndices;
     } else {
+        // we don't share
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swapchain_create_info.queueFamilyIndexCount = 0;
         swapchain_create_info.pQueueFamilyIndices = 0;
     }
 
     swapchain_create_info.preTransform = context->device.swapchain_support.capabilities.currentTransform;
-    swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;  // composite with os off
     swapchain_create_info.presentMode = present_mode;
     swapchain_create_info.clipped = VK_TRUE;
     swapchain_create_info.oldSwapchain = 0;
@@ -111,6 +113,7 @@ void create(
     if (!swapchain->views) {
         swapchain->views = (VkImageView*)memory_allocate(sizeof(VkImageView) * swapchain->image_count, MEMORY_TAG_RENDERER);
     }
+    // images are managed by the swapchain so we just get them
     VK_CHECK(vkGetSwapchainImagesKHR(
         context->device.logical_device,
         swapchain->handle,

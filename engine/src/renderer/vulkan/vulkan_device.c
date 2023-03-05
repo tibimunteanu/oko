@@ -41,11 +41,9 @@ b8 physical_device_meets_requirements(
     out_queue_info->transfer_family_index = -1;
 
     // Discrete GPU?
-    if (requirements->discrete_gpu) {
-        if (properties->deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            OKO_INFO("Device is not a discrete GPU, and one is required. Skipping.")
-            return false;
-        }
+    if (requirements->discrete_gpu && properties->deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        OKO_INFO("Device is not a discrete GPU, and one is required. Skipping.")
+        return false;
     }
 
     // TODO: VK_CHECK?
@@ -64,6 +62,7 @@ b8 physical_device_meets_requirements(
             out_queue_info->graphics_family_index = i;
             ++current_transfer_score;
         }
+
         // Compute queue?
         if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
             out_queue_info->compute_family_index = i;
@@ -87,90 +86,148 @@ b8 physical_device_meets_requirements(
         }
     }
 
-    OKO_INFO("Graphics | Present | Compute | Transfer | Name");
-    OKO_INFO("       %d |       %d |       %d |        %d | %s",
-             out_queue_info->graphics_family_index,
-             out_queue_info->present_family_index,
-             out_queue_info->compute_family_index,
-             out_queue_info->transfer_family_index,
-             properties->deviceName);
+    if ((requirements->graphics && out_queue_info->graphics_family_index == -1) ||
+        (requirements->present && out_queue_info->present_family_index == -1) ||
+        (requirements->compute && out_queue_info->compute_family_index == -1) ||
+        (requirements->transfer && out_queue_info->transfer_family_index == -1)) {
+        //
+        OKO_INFO("Device does not meet queue requirements. Skipping.");
+        return false;
+    }
 
-    if ((!requirements->graphics || (requirements->graphics && out_queue_info->graphics_family_index != -1)) &&
-        (!requirements->present || (requirements->present && out_queue_info->present_family_index != -1)) &&
-        (!requirements->compute || (requirements->compute && out_queue_info->compute_family_index != -1)) &&
-        (!requirements->transfer || (requirements->transfer && out_queue_info->transfer_family_index != -1))) {
-        OKO_INFO("Device meets queue requirements.");
+    // Query swapchain support.
+    vulkan_device_query_swapchain_support(device, surface, out_swapchain_support);
 
-        // Query swapchain support.
-        vulkan_device_query_swapchain_support(device, surface, out_swapchain_support);
+    if (out_swapchain_support->format_count < 1 || out_swapchain_support->present_mode_count < 1) {
+        if (out_swapchain_support->formats) {
+            memory_free(out_swapchain_support->formats, sizeof(VkSurfaceFormatKHR) * out_swapchain_support->format_count,
+                        MEMORY_TAG_RENDERER);
+        }
+        if (out_swapchain_support->present_modes) {
+            memory_free(out_swapchain_support->present_modes, sizeof(VkPresentModeKHR) * out_swapchain_support->present_mode_count,
+                        MEMORY_TAG_RENDERER);
+        }
 
-        if (out_swapchain_support->format_count < 1 || out_swapchain_support->present_mode_count < 1) {
-            if (out_swapchain_support->formats) {
-                memory_free(out_swapchain_support->formats, sizeof(VkSurfaceFormatKHR) * out_swapchain_support->format_count,
-                            MEMORY_TAG_RENDERER);
-            }
-            if (out_swapchain_support->present_modes) {
-                memory_free(out_swapchain_support->present_modes, sizeof(VkPresentModeKHR) * out_swapchain_support->present_mode_count,
-                            MEMORY_TAG_RENDERER);
-            }
-            OKO_INFO("Required swapchain support not present, skipping device.");
+        memory_zero(&out_swapchain_support->capabilities, sizeof(out_swapchain_support->capabilities));
+
+        OKO_INFO("Device required swapchain support not present. Skipping.");
+        return false;
+    }
+
+    // Device extensions
+    u32 required_extensions_count = 0;
+    if (requirements->device_extension_names) {
+        required_extensions_count = darray_length(requirements->device_extension_names);
+    }
+
+    if (required_extensions_count != 0) {
+        u32 available_extension_count = 0;
+        VkExtensionProperties* available_extensions = 0;
+        VK_CHECK(vkEnumerateDeviceExtensionProperties(device,
+                                                      0,
+                                                      &available_extension_count,
+                                                      0));
+
+        if (available_extension_count == 0) {
+            OKO_INFO("Device required extensions not present. Skipping.");
             return false;
         }
 
-        // Device extensions
-        if (requirements->device_extension_names) {
-            u32 available_extension_count = 0;
-            VkExtensionProperties* available_extensions = 0;
-            VK_CHECK(vkEnumerateDeviceExtensionProperties(device,
-                                                          0,
-                                                          &available_extension_count,
-                                                          0));
-            if (available_extension_count != 0) {
-                available_extensions = memory_allocate(sizeof(VkExtensionProperties) * available_extension_count,
-                                                       MEMORY_TAG_RENDERER);
-                VK_CHECK(vkEnumerateDeviceExtensionProperties(device,
-                                                              0,
-                                                              &available_extension_count,
-                                                              available_extensions));
+        available_extensions = memory_allocate(sizeof(VkExtensionProperties) * available_extension_count,
+                                               MEMORY_TAG_RENDERER);
+        VK_CHECK(vkEnumerateDeviceExtensionProperties(device,
+                                                      0,
+                                                      &available_extension_count,
+                                                      available_extensions));
 
-                u32 required_extensions_count = darray_length(requirements->device_extension_names);
-
-                for (u32 i = 0; i < required_extensions_count; i++) {
-                    b8 found = false;
-                    for (u32 j = 0; j < available_extension_count; j++) {
-                        if (strings_equal(requirements->device_extension_names[i], available_extensions[j].extensionName)) {
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (!found) {
-                        OKO_INFO("Required extension not found: '%s', skipping device.", requirements->device_extension_names[i]);
-                        memory_free(available_extensions, sizeof(VkExtensionProperties) * available_extension_count,
-                                    MEMORY_TAG_RENDERER);
-                        return false;
-                    }
+        for (u32 i = 0; i < required_extensions_count; i++) {
+            b8 found = false;
+            for (u32 j = 0; j < available_extension_count; j++) {
+                if (strings_equal(requirements->device_extension_names[i], available_extensions[j].extensionName)) {
+                    found = true;
+                    break;
                 }
+            }
 
+            if (!found) {
+                OKO_INFO("Device required extension not found: '%s'. Skipping.", requirements->device_extension_names[i]);
                 memory_free(available_extensions, sizeof(VkExtensionProperties) * available_extension_count,
                             MEMORY_TAG_RENDERER);
+                return false;
             }
         }
+
+        memory_free(available_extensions, sizeof(VkExtensionProperties) * available_extension_count,
+                    MEMORY_TAG_RENDERER);
 
         // Sampler anisotropy
         if (requirements->sampler_anisotropy && !features->samplerAnisotropy) {
-            OKO_INFO("Device does not support sampler anisotropy, skipping.");
+            OKO_INFO("Device does not support sampler anisotropy. Skipping.");
             return false;
         }
-
-        // Device meets all requirements
-        return true;
     }
 
-    return false;
+    // Device meets all requirements
+    return true;
+}
+
+void print_device_info(vulkan_device* device) {
+    // Print some info about the selected device
+    OKO_INFO("Device name: '%s'.", device->properties.deviceName);
+
+    // GPU info
+    switch (device->properties.deviceType) {
+        default:
+        case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+            OKO_INFO("GPU type: Unknown");
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+            OKO_INFO("GPU type: Integrated");
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+            OKO_INFO("GPU type: Discrete");
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+            OKO_INFO("GPU type: Virtual");
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_CPU:
+            OKO_INFO("GPU type: CPU");
+            break;
+    }
+
+    OKO_INFO("GPU Driver version: %d.%d.%d",
+             VK_VERSION_MAJOR(device->properties.driverVersion),
+             VK_VERSION_MINOR(device->properties.driverVersion),
+             VK_VERSION_PATCH(device->properties.driverVersion));
+
+    // Vulkan API version.
+    OKO_INFO("Vulkan API version: %d.%d.%d",
+             VK_VERSION_MAJOR(device->properties.apiVersion),
+             VK_VERSION_MINOR(device->properties.apiVersion),
+             VK_VERSION_PATCH(device->properties.apiVersion));
+
+    // Memory information
+    OKO_INFO("Memory heaps:");
+    for (u32 j = 0; j < device->memory.memoryHeapCount; j++) {
+        f32 memory_size_gib = (((f32)device->memory.memoryHeaps[j].size) / 1024.0f / 1024.0f / 1024.0f);
+        if (device->memory.memoryHeaps[j].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+            OKO_INFO("\tLocal: %.2f GiB", memory_size_gib);
+        } else {
+            OKO_INFO("\tShared: %.2f GiB", memory_size_gib);
+        }
+    }
+
+    OKO_INFO("Queue families: | Graphics | Present | Compute | Transfer |");
+    OKO_INFO("                |        %d |       %d |       %d |        %d |",
+             device->graphics_queue_index,
+             device->present_queue_index,
+             device->compute_queue_index,
+             device->transfer_queue_index);
 }
 
 b8 select_physical_device(vulkan_context* context) {
+    OKO_INFO("Selecting physical device...");
+
     // Get device count
     u32 physical_device_count = 0;
     VK_CHECK(vkEnumeratePhysicalDevices(context->instance,
@@ -212,70 +269,25 @@ b8 select_physical_device(vulkan_context* context) {
 
         // Check the device against the requirements
         vulkan_physical_device_queue_family_info queue_info = {};
-        b8 result = physical_device_meets_requirements(physical_devices[i],
-                                                       context->surface,
-                                                       &properties,
-                                                       &features,
-                                                       &requirements,
-                                                       &queue_info,
-                                                       &context->device.swapchain_support);
+        b8 found = physical_device_meets_requirements(physical_devices[i],
+                                                      context->surface,
+                                                      &properties,
+                                                      &features,
+                                                      &requirements,
+                                                      &queue_info,
+                                                      &context->device.swapchain_support);
 
-        if (result) {
-            // Print some info about the selected device
-            OKO_INFO("Selected device: '%s'.", properties.deviceName);
-
-            // GPU info
-            switch (properties.deviceType) {
-                default:
-                case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-                    OKO_INFO("GPU type is Unknown.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-                    OKO_INFO("GPU type is Integrated.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-                    OKO_INFO("GPU type is Discrete.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-                    OKO_INFO("GPU type is Virtual.");
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_CPU:
-                    OKO_INFO("GPU type is CPU.");
-                    break;
-            }
-
-            OKO_INFO("GPU Driver version: %d.%d.%d",
-                     VK_VERSION_MAJOR(properties.driverVersion),
-                     VK_VERSION_MINOR(properties.driverVersion),
-                     VK_VERSION_PATCH(properties.driverVersion));
-
-            // Vulkan API version.
-            OKO_INFO("Vulkan API version: %d.%d.%d",
-                     VK_VERSION_MAJOR(properties.apiVersion),
-                     VK_VERSION_MINOR(properties.apiVersion),
-                     VK_VERSION_PATCH(properties.apiVersion));
-
-            // Memory information
-            for (u32 j = 0; j < memory.memoryHeapCount; j++) {
-                f32 memory_size_gib = (((f32)memory.memoryHeaps[j].size) / 1024.0f / 1024.0f / 1024.0f);
-                if (memory.memoryHeaps[j].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-                    OKO_INFO("Local GPU memory: %.2f GiB", memory_size_gib);
-                } else {
-                    OKO_INFO("Shared System memory: %.2f GiB", memory_size_gib);
-                }
-            }
-
-            // Save the physical device and queue indices
+        if (found) {
+            // Save the physical device, queue indices and other device info
             context->device.physical_device = physical_devices[i];
             context->device.graphics_queue_index = queue_info.graphics_family_index;
             context->device.present_queue_index = queue_info.present_family_index;
             context->device.compute_queue_index = queue_info.compute_family_index;
             context->device.transfer_queue_index = queue_info.transfer_family_index;
-
-            // Save this other device info
             context->device.properties = properties;
             context->device.features = features;
             context->device.memory = memory;
+
             break;
         }
     }
@@ -286,7 +298,8 @@ b8 select_physical_device(vulkan_context* context) {
         return false;
     }
 
-    OKO_INFO("Physical device selected.");
+    print_device_info(&context->device);
+
     return true;
 }
 

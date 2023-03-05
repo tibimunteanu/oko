@@ -98,6 +98,7 @@ void regenerate_framebuffers(
     vulkan_renderpass* renderpass) {
     //
     for (u32 i = 0; i < swapchain->image_count; i++) {
+        // TODO: shouldn't we also destroy prev framebuffers?
         // TODO: make this dynamic based on the currently configured attachments
         u32 attachment_count = 2;
         VkImageView attachments[] = {
@@ -228,8 +229,8 @@ b8 vulkan_renderer_backend_initialize(
 
     // Obtain a list of required extensions
     const char** required_extensions = darray_create(const char*);
-    darray_push(required_extensions, &VK_KHR_SURFACE_EXTENSION_NAME);    // Generic surface extension
-    platform_get_vulkan_required_extension_names(&required_extensions);  // Platform-specific extension(s)
+    darray_push(required_extensions, &VK_KHR_SURFACE_EXTENSION_NAME);     // Generic surface extension
+    platform_push_vulkan_required_extension_names(&required_extensions);  // Platform-specific extension(s)
 #if defined(_DEBUG)
     darray_push(required_extensions, &VK_EXT_DEBUG_UTILS_EXTENSION_NAME);  // Debug utils
 
@@ -270,7 +271,6 @@ b8 vulkan_renderer_backend_initialize(
         for (u32 j = 0; j < available_layer_count; j++) {
             if (strings_equal(required_validation_layer_names[i], available_layers[j].layerName)) {
                 found = true;
-                OKO_INFO("Found.");
                 break;
             }
         }
@@ -294,18 +294,21 @@ b8 vulkan_renderer_backend_initialize(
     OKO_DEBUG("Creating Vulkan debugger...");
     u32 log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
                        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;  // |
-                                                                         //    VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-                                                                         //    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+    //                 VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+    //                 VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+
     VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
     debug_create_info.messageSeverity = log_severity;
     debug_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
                                     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
                                     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+
     debug_create_info.pfnUserCallback = vulkan_debug_callback;
 
     // NOTE: since this is an extension, we have to load a function pointer to it
     PFN_vkCreateDebugUtilsMessengerEXT func =
         (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkCreateDebugUtilsMessengerEXT");
+
     OKO_ASSERT_MSG(func, "Failed to get PFN_vkCreateDebugUtilsMessengerEXT!");
     VK_CHECK(func(context.instance, &debug_create_info, context.allocator, &context.debug_messenger));
     OKO_DEBUG("Vulkan debugger created.");
