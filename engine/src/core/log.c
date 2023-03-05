@@ -21,10 +21,18 @@ void log_shutdown() {
 }
 
 void log_output(log_level level, const char* message, ...) {
-    const char* level_strings[6] = {"[FATAL]: ", "[ERROR]: ", "[WARN]:  ", "[INFO]:  ", "[DEBUG]: ", "[TRACE]: "};
+    const char* level_strings[6] = {
+        "[FATAL]: ",
+        "[ERROR]: ",
+        "[WARN]:  ",
+        "[INFO]:  ",
+        "[DEBUG]: ",
+        "[TRACE]: "};
     b8 is_error = level < LOG_LEVEL_WARN;
 
-    OKO_ASSERT_DEBUG(strlen(message) < LOG_ENTRY_MAX_LENGTH - strlen(level_strings[0]));
+    OKO_ASSERT_DEBUG(
+        strlen(message) < LOG_ENTRY_MAX_LENGTH - strlen(level_strings[0])
+    );
     char out_message[LOG_ENTRY_MAX_LENGTH];
     memset(out_message, 0, sizeof(out_message));
 
@@ -45,6 +53,15 @@ void log_output(log_level level, const char* message, ...) {
     }
 }
 
-void report_assertion_failure(const char* expression, const char* message, const char* file, i32 line) {
-    log_output(LOG_LEVEL_FATAL, "Assertion Failure: %s, message: '%s', in file: %s, line: %d\n", expression, message, file, line);
+void report_assertion_failure(
+    const char* expression, const char* message, const char* file, i32 line
+) {
+    log_output(
+        LOG_LEVEL_FATAL,
+        "Assertion Failure: %s, message: '%s', in file: %s, line: %d\n",
+        expression,
+        message,
+        file,
+        line
+    );
 }

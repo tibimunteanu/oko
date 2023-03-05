@@ -8,8 +8,8 @@
 static renderer_backend* backend = 0;
 
 b8 renderer_initialize(
-    const char* application_name,
-    struct platform_state* platform_state) {
+    const char* application_name, struct platform_state* platform_state
+) {
     //
     backend = memory_allocate(sizeof(renderer_backend), MEMORY_TAG_RENDERER);
 
@@ -33,7 +33,11 @@ void renderer_on_resized(u16 width, u16 height) {
     if (backend) {
         backend->resized(backend, width, height);
     } else {
-        OKO_WARN("Renderer backend does not exist to accept resize: %i %i", width, height);
+        OKO_WARN(
+            "Renderer backend does not exist to accept resize: %i %i",
+            width,
+            height
+        );
     }
 }
 
@@ -48,13 +52,15 @@ b8 renderer_end_frame(f32 delta_time) {
 }
 
 b8 renderer_draw_frame(render_packet* packet) {
-    // If the begin frame returned successfully, mid-frame operations may continue.
+    // If the begin frame returned successfully, mid-frame operations may
+    // continue.
     if (renderer_begin_frame(packet->delta_time)) {
         // End the frame. If this fails, it is likely unrecoverable.
         b8 result = renderer_end_frame(packet->delta_time);
 
         if (!result) {
-            OKO_ERROR("renderer_end_frame failed. Application shutting down...");
+            OKO_ERROR("renderer_end_frame failed. Application shutting down..."
+            );
             return false;
         }
     }

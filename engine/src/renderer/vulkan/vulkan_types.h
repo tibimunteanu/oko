@@ -5,10 +5,8 @@
 
 #include <vulkan/vulkan.h>
 
-#define VK_CHECK(expr)                  \
-    {                                   \
-        OKO_ASSERT(expr == VK_SUCCESS); \
-    }
+#define VK_CHECK(expr) \
+  { OKO_ASSERT(expr == VK_SUCCESS); }
 
 typedef struct vulkan_swapchain_support_info {
     VkSurfaceCapabilitiesKHR capabilities;
@@ -120,7 +118,8 @@ typedef struct vulkan_context {
     VkSemaphore* queue_complete_semaphores;           // darray
     u32 in_flight_fence_count;
     vulkan_fence* in_flight_fences;
-    vulkan_fence** images_in_flight;  // Holds pointers to fences which exist and are owned elsewhere
+    vulkan_fence** images_in_flight;  // Holds pointers to fences which exist
+                                      // and are owned elsewhere
     u32 image_index;
     u32 current_frame;
     b8 recreating_swapchain;

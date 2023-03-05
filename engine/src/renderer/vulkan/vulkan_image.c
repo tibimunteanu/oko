@@ -16,7 +16,8 @@ void vulkan_image_create(
     VkMemoryPropertyFlags memory_flags,
     b32 create_view,
     VkImageAspectFlags view_aspect_flags,
-    vulkan_image* out_image) {
+    vulkan_image* out_image
+) {
     //
     // Copy params
     out_image->width = width;
@@ -34,53 +35,56 @@ void vulkan_image_create(
     image_create_info.tiling = tiling;
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image_create_info.usage = usage;
-    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;          // TODO: Configurable sample count
-    image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;  // TODO: Configurable sharing mode
+    image_create_info.samples =
+        VK_SAMPLE_COUNT_1_BIT;  // TODO: Configurable sample count
+    image_create_info.sharingMode =
+        VK_SHARING_MODE_EXCLUSIVE;  // TODO: Configurable sharing mode
 
     VK_CHECK(vkCreateImage(
         context->device.logical_device,
         &image_create_info,
         context->allocator,
-        &out_image->handle));
+        &out_image->handle
+    ));
 
     // Query memory requirements
     VkMemoryRequirements memory_requirements;
     vkGetImageMemoryRequirements(
-        context->device.logical_device,
-        out_image->handle,
-        &memory_requirements);
+        context->device.logical_device, out_image->handle, &memory_requirements
+    );
 
-    i32 memory_type = context->find_memory_index(memory_requirements.memoryTypeBits, memory_flags);
+    i32 memory_type = context->find_memory_index(
+        memory_requirements.memoryTypeBits, memory_flags
+    );
     if (memory_type == -1) {
         OKO_ERROR("Required memory type not found. Image not valid.");
     }
 
     // Allocate memory
-    VkMemoryAllocateInfo memory_allocate_info = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    VkMemoryAllocateInfo memory_allocate_info = {
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
     memory_allocate_info.allocationSize = memory_requirements.size;
     memory_allocate_info.memoryTypeIndex = memory_type;
     VK_CHECK(vkAllocateMemory(
         context->device.logical_device,
         &memory_allocate_info,
         context->allocator,
-        &out_image->memory));
+        &out_image->memory
+    ));
 
     // Bind the memory
     VK_CHECK(vkBindImageMemory(
         context->device.logical_device,
         out_image->handle,
         out_image->memory,
-        0));  // TODO: Configurable memory offset
+        0
+    ));  // TODO: Configurable memory offset
 
     // Create view
     if (create_view) {
         out_image->view = 0;
 
-        vulkan_image_view_create(
-            context,
-            format,
-            out_image,
-            view_aspect_flags);
+        vulkan_image_view_create(context, format, out_image, view_aspect_flags);
     }
 }
 
@@ -88,11 +92,14 @@ void vulkan_image_view_create(
     vulkan_context* context,
     VkFormat format,
     vulkan_image* image,
-    VkImageAspectFlags aspect_flags) {
+    VkImageAspectFlags aspect_flags
+) {
     //
-    VkImageViewCreateInfo view_create_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    VkImageViewCreateInfo view_create_info = {
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     view_create_info.image = image->handle;
-    view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;  // TODO: Configurable image view type
+    view_create_info.viewType =
+        VK_IMAGE_VIEW_TYPE_2D;  // TODO: Configurable image view type
     view_create_info.format = format;
     view_create_info.subresourceRange.aspectMask = aspect_flags;
 
@@ -106,36 +113,32 @@ void vulkan_image_view_create(
         context->device.logical_device,
         &view_create_info,
         context->allocator,
-        &image->view));
+        &image->view
+    ));
 }
 
-void vulkan_image_destroy(
-    vulkan_context* context,
-    vulkan_image* image) {
+void vulkan_image_destroy(vulkan_context* context, vulkan_image* image) {
     //
     if (image->view) {
         vkDestroyImageView(
-            context->device.logical_device,
-            image->view,
-            context->allocator);
+            context->device.logical_device, image->view, context->allocator
+        );
 
         image->view = 0;
     }
 
     if (image->memory) {
         vkFreeMemory(
-            context->device.logical_device,
-            image->memory,
-            context->allocator);
+            context->device.logical_device, image->memory, context->allocator
+        );
 
         image->memory = 0;
     }
 
     if (image->handle) {
         vkDestroyImage(
-            context->device.logical_device,
-            image->handle,
-            context->allocator);
+            context->device.logical_device, image->handle, context->allocator
+        );
 
         image->handle = 0;
     }

@@ -9,8 +9,9 @@ void vulkan_framebuffer_create(
     u32 height,
     u32 attachment_count,
     VkImageView* attachments,
-    vulkan_framebuffer* out_framebuffer);
+    vulkan_framebuffer* out_framebuffer
+);
 
 void vulkan_framebuffer_destroy(
-    vulkan_context* context,
-    vulkan_framebuffer* framebuffer);
+    vulkan_context* context, vulkan_framebuffer* framebuffer
+);

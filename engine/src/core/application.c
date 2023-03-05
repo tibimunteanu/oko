@@ -32,22 +32,27 @@ void application_get_framebuffer_size(u32* width, u32* height) {
 }
 
 // Event handlers
-b8 application_on_event(u16 code, void* sender, void* listener_inst, event_context context) {
+b8 application_on_event(
+    u16 code, void* sender, void* listener_inst, event_context context
+) {
     switch (code) {
-        case EVENT_APPLICATION_QUIT: {
-            OKO_INFO("EVENT_APPLICATION_QUIT received, shutting down");
-            app_state.is_running = false;
-            return true;
-        }
+    case EVENT_APPLICATION_QUIT: {
+        OKO_INFO("EVENT_APPLICATION_QUIT received, shutting down");
+        app_state.is_running = false;
+        return true;
+    }
     }
     return false;
 }
 
-b8 application_on_key(u16 code, void* sender, void* listener_inst, event_context context) {
+b8 application_on_key(
+    u16 code, void* sender, void* listener_inst, event_context context
+) {
     if (code == EVENT_KEY_PRESSED) {
         u16 key_code = context.data.u16[0];
         if (key_code == KEY_ESCAPE) {
-            // NOTE: Technically firing an event to itself, but there may be other listeners
+            // NOTE: Technically firing an event to itself, but there may be
+            // other listeners
             event_context data = {};
             event_fire(EVENT_APPLICATION_QUIT, 0, data);
 
@@ -69,7 +74,9 @@ b8 application_on_key(u16 code, void* sender, void* listener_inst, event_context
     return false;
 }
 
-b8 application_on_resized(u16 code, void* sender, void* listener_inst, event_context context) {
+b8 application_on_resized(
+    u16 code, void* sender, void* listener_inst, event_context context
+) {
     if (code == EVENT_RESIZED) {
         u16 width = context.data.u16[0];
         u16 height = context.data.u16[1];
@@ -91,7 +98,9 @@ b8 application_on_resized(u16 code, void* sender, void* listener_inst, event_con
                     OKO_INFO("Window restored. Resuming application.");
                     app_state.is_suspended = false;
                 }
-                app_state.game_inst->on_resize(app_state.game_inst, width, height);
+                app_state.game_inst->on_resize(
+                    app_state.game_inst, width, height
+                );
                 renderer_on_resized(width, height);
             }
         }
@@ -133,7 +142,8 @@ b8 application_create(game* game_inst) {
             game_inst->app_config.start_pos_x,
             game_inst->app_config.start_pos_y,
             game_inst->app_config.start_width,
-            game_inst->app_config.start_height)) {
+            game_inst->app_config.start_height
+        )) {
         return false;
     }
 
@@ -149,7 +159,9 @@ b8 application_create(game* game_inst) {
         return false;
     }
 
-    app_state.game_inst->on_resize(app_state.game_inst, app_state.width, app_state.height);
+    app_state.game_inst->on_resize(
+        app_state.game_inst, app_state.width, app_state.height
+    );
 
     initialized = true;
     return true;

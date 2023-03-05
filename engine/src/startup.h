@@ -21,7 +21,8 @@ int main(void) {
     }
 
     // Ensure the function pointers exist.
-    if (!game_inst.render || !game_inst.update || !game_inst.initialize || !game_inst.on_resize) {
+    if (!game_inst.render || !game_inst.update || !game_inst.initialize ||
+        !game_inst.on_resize) {
         OKO_FATAL("The game's function pointers must be assigned!");
         return -2;
     }

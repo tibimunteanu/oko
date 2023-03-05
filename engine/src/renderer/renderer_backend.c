@@ -5,7 +5,8 @@
 b8 renderer_backend_create(
     renderer_backend_types type,
     struct platform_state* platform_state,
-    renderer_backend* out_renderer_backend) {
+    renderer_backend* out_renderer_backend
+) {
     //
     out_renderer_backend->platform_state = platform_state;
     out_renderer_backend->frame_number = 0;
@@ -22,8 +23,7 @@ b8 renderer_backend_create(
     return false;
 }
 
-void renderer_backend_destroy(
-    renderer_backend* renderer_backend) {
+void renderer_backend_destroy(renderer_backend* renderer_backend) {
     //
     renderer_backend->initialize = 0;
     renderer_backend->shutdown = 0;

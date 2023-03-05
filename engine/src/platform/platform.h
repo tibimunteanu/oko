@@ -9,7 +9,11 @@ typedef struct platform_state {
 b8 platform_startup(
     platform_state* platform_state,
     const char* application_name,
-    i32 x, i32 y, i32 width, i32 height);
+    i32 x,
+    i32 y,
+    i32 width,
+    i32 height
+);
 
 void platform_shutdown(platform_state* platform_state);
 

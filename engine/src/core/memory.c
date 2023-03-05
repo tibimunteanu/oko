@@ -46,7 +46,10 @@ void memory_shutdown() {
 
 void* memory_allocate(u64 size, memory_tag tag) {
     if (tag == MEMORY_TAG_UNKNOWN) {
-        OKO_WARN("oko_allocate called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
+        OKO_WARN(
+            "oko_allocate called using MEMORY_TAG_UNKNOWN. Re-class this "
+            "allocation."
+        );
     }
 
     stats.total_allocated += size;
@@ -60,7 +63,10 @@ void* memory_allocate(u64 size, memory_tag tag) {
 
 void memory_free(void* block, u64 size, memory_tag tag) {
     if (tag == MEMORY_TAG_UNKNOWN) {
-        OKO_WARN("oko_free called using MEMORY_TAG_UNKNOWN. Re-class this allocation.");
+        OKO_WARN(
+            "oko_free called using MEMORY_TAG_UNKNOWN. Re-class this "
+            "allocation."
+        );
     }
 
     stats.total_allocated -= size;
@@ -107,7 +113,14 @@ char* memory_get_usage_string() {
             amount = stats.tagged_allocations[i];
         }
 
-        i32 length = snprintf(buffer + offset, 8000, " %s: %.2f%s\n", memory_tag_strings[i], amount, unit);
+        i32 length = snprintf(
+            buffer + offset,
+            8000,
+            " %s: %.2f%s\n",
+            memory_tag_strings[i],
+            amount,
+            unit
+        );
         offset += length;
     }
 

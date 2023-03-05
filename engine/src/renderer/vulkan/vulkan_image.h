@@ -13,14 +13,14 @@ void vulkan_image_create(
     VkMemoryPropertyFlags memory_flags,
     b32 create_view,
     VkImageAspectFlags view_aspect_flags,
-    vulkan_image* out_image);
+    vulkan_image* out_image
+);
 
 void vulkan_image_view_create(
     vulkan_context* context,
     VkFormat format,
     vulkan_image* image,
-    VkImageAspectFlags aspect_flags);
+    VkImageAspectFlags aspect_flags
+);
 
-void vulkan_image_destroy(
-    vulkan_context* context,
-    vulkan_image* image);
+void vulkan_image_destroy(vulkan_context* context, vulkan_image* image);
