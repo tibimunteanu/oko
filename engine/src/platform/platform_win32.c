@@ -286,8 +286,21 @@ win32_process_message(HWND hwnd, u32 msg, WPARAM w_param, LPARAM l_param) {
     case WM_KEYUP:
     case WM_SYSKEYUP: {
         // Key pressed/released
+
+        WPARAM new_vk = w_param;
+        UINT scancode = (l_param & 0x00ff0000) >> 16;
+        int extended = (l_param & 0x01000000) != 0;
+
+        if (w_param == VK_MENU) {
+            new_vk = extended ? KEY_RALT : KEY_LALT;
+        } else if (w_param == VK_CONTROL) {
+            new_vk = extended ? KEY_RCONTROL : KEY_LCONTROL;
+        } else if (w_param == VK_SHIFT) {
+            new_vk = extended ? KEY_RSHIFT : KEY_LSHIFT;
+        }
+
         b8 pressed = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
-        keys key = (u16)w_param;
+        keys key = (u16)new_vk;
 
         // Pass to the input subsystem for processing
         input_process_key(key, pressed);

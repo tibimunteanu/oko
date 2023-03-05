@@ -52,7 +52,7 @@ b8 physical_device_meets_requirements(
     // TODO: VK_CHECK?
     u32 queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, 0);
-    VkQueueFamilyProperties queue_families[queue_family_count];
+    VkQueueFamilyProperties queue_families[32];
     vkGetPhysicalDeviceQueueFamilyProperties(
         device, &queue_family_count, queue_families
     );
@@ -281,7 +281,8 @@ b8 select_physical_device(vulkan_context* context) {
     }
 
     // Get all devices info
-    VkPhysicalDevice physical_devices[physical_device_count];
+    const u32 max_device_count = 32;
+    VkPhysicalDevice physical_devices[max_device_count];
     VK_CHECK(vkEnumeratePhysicalDevices(
         context->instance, &physical_device_count, physical_devices
     ));
@@ -371,7 +372,7 @@ void create_logical_device(vulkan_context* context) {
     if (!transfer_shares_graphics_queue) {
         index_count++;
     }
-    u32 indices[index_count];
+    u32 indices[32];
     u8 index = 0;
     indices[index++] = context->device.graphics_queue_index;
     if (!present_shares_graphics_queue) {
@@ -381,7 +382,7 @@ void create_logical_device(vulkan_context* context) {
         indices[index++] = context->device.transfer_queue_index;
     }
 
-    VkDeviceQueueCreateInfo queue_create_infos[index_count];
+    VkDeviceQueueCreateInfo queue_create_infos[32];
     for (u32 i = 0; i < index_count; i++) {
         queue_create_infos[i].sType =
             VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;

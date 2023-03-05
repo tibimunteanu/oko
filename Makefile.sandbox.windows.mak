@@ -4,7 +4,7 @@ OBJ_DIR := obj
 
 ASSEMBLY := sandbox
 EXTENSION := .exe
-COMPILER_FLAGS := -g -Wno-missing-braces -fdeclspec #-fPIC
+COMPILER_FLAGS := -g -MD -Werror=vla -fdeclspec #-fPIC
 INCLUDE_FLAGS := -Iengine\src -Isandbox\src 
 LINKER_FLAGS := -g -lengine.lib -L$(OBJ_DIR)\engine -L$(BUILD_DIR) #-Wl,-rpath,.
 DEFINES := -D_DEBUG -DOKO_IMPORT
@@ -41,3 +41,5 @@ clean: # clean build directory
 $(OBJ_DIR)/%.c.o: %.c # compile .c to .c.o object
 	@echo   $<...
 	@clang $< $(COMPILER_FLAGS) -c -o $@ $(DEFINES) $(INCLUDE_FLAGS)
+
+-include $(OBJ_FILES:.o=.d)

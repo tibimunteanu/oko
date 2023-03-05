@@ -60,6 +60,18 @@ b8 application_on_key(
             return true;
         } else if (key_code == KEY_A) {
             OKO_DEBUG("Explicit - A key pressed!");
+        } else if (key_code == KEY_LALT) {
+            OKO_DEBUG("Explicit - LALT key pressed!");
+        } else if (key_code == KEY_RALT) {
+            OKO_DEBUG("Explicit - RALT key pressed!");
+        } else if (key_code == KEY_LSHIFT) {
+            OKO_DEBUG("Explicit - LSHIFT key pressed!");
+        } else if (key_code == KEY_RSHIFT) {
+            OKO_DEBUG("Explicit - RSHIFT key pressed!");
+        } else if (key_code == KEY_LCONTROL) {
+            OKO_DEBUG("Explicit - LCONTROL key pressed!");
+        } else if (key_code == KEY_RCONTROL) {
+            OKO_DEBUG("Explicit - RCONTROL key pressed!");
         } else {
             OKO_DEBUG("'%c' key pressed!", key_code);
         }
@@ -67,10 +79,23 @@ b8 application_on_key(
         u16 key_code = context.data.u16[0];
         if (key_code == KEY_B) {
             OKO_DEBUG("Explicit - B key released!");
+        } else if (key_code == KEY_LALT) {
+            OKO_DEBUG("Explicit - LALT key released!");
+        } else if (key_code == KEY_RALT) {
+            OKO_DEBUG("Explicit - RALT key released!");
+        } else if (key_code == KEY_LSHIFT) {
+            OKO_DEBUG("Explicit - LSHIFT key released!");
+        } else if (key_code == KEY_RSHIFT) {
+            OKO_DEBUG("Explicit - RSHIFT key released!");
+        } else if (key_code == KEY_LCONTROL) {
+            OKO_DEBUG("Explicit - LCONTROL key released!");
+        } else if (key_code == KEY_RCONTROL) {
+            OKO_DEBUG("Explicit - RCONTROL key released!");
         } else {
             OKO_DEBUG("'%c' key released!", key_code);
         }
     }
+
     return false;
 }
 
