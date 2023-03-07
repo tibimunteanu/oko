@@ -44,7 +44,7 @@ typedef struct memory_system_state {
 
 static memory_system_state* state_ptr;
 
-b8 memory_initialize(u64* memory_requirement, void* state) {
+b8 memory_system_initialize(u64* memory_requirement, void* state) {
     *memory_requirement = sizeof(memory_system_state);
     if (state == 0) {
         return true;
@@ -57,7 +57,7 @@ b8 memory_initialize(u64* memory_requirement, void* state) {
     return true;
 }
 
-void memory_shutdown(void* state) {
+void memory_system_shutdown(void* state) {
     state_ptr = 0;
 }
 

@@ -25,8 +25,8 @@ typedef enum memory_tag {
     MEMORY_TAG_MAX_TAGS
 } memory_tag;
 
-OKO_API b8 memory_initialize(u64* memory_requirement, void* state);
-OKO_API void memory_shutdown(void* state);
+OKO_API b8 memory_system_initialize(u64* memory_requirement, void* state);
+OKO_API void memory_system_shutdown(void* state);
 
 OKO_API void* memory_allocate(u64 size, memory_tag tag);
 OKO_API void memory_free(void* block, u64 size, memory_tag tag);

@@ -221,9 +221,7 @@ b8 recreate_swapchain(renderer_backend* backend) {
 
 // PUBLIC
 b8 vulkan_renderer_backend_initialize(
-    struct renderer_backend* backend,
-    const char* application_name,
-    struct platform_state* platform_state
+    struct renderer_backend* backend, const char* application_name
 ) {
     //
     // Function pointers
@@ -376,7 +374,7 @@ b8 vulkan_renderer_backend_initialize(
 
     // Surface creation
     OKO_DEBUG("Creating Vulkan surface...");
-    if (!platform_create_vulkan_surface(platform_state, &context)) {
+    if (!platform_create_vulkan_surface(&context)) {
         OKO_ERROR("Failed to create platform surface!");
         return false;
     }

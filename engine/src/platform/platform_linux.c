@@ -30,7 +30,7 @@
   #include <vulkan/vulkan.h>
   #include "renderer/vulkan/vulkan_types.h"
 
-typedef struct internal_state {
+typedef struct platform_state {
     Display* display;
     xcb_connection_t* connection;
     xcb_window_t window;
@@ -38,22 +38,28 @@ typedef struct internal_state {
     xcb_atom_t wm_protocols;
     xcb_atom_t wm_delete_win;
     VkSurfaceKHR surface;  // TODO: we may not need this
-} internal_state;
+} platform_state;
+
+static platform_state* state_ptr;
 
 // Key translation
 keys translate_keycode(u32 x_keycode);
 
-OKO_API b8 platform_startup(
-    platform_state* platform_state,
+OKO_API b8 platform_system_startup(
+    u64* memory_requirement,
+    void* state,
     const char* application_name,
     i32 x,
     i32 y,
     i32 width,
     i32 height
 ) {
-    // Create the internal state
-    platform_state->internal_state = malloc(sizeof(internal_state));
-    internal_state* state = (internal_state*)platform_state->internal_state;
+    *memory_requirement = sizeof(platform_state);
+    if (state == 0) {
+        return true;
+    }
+
+    state_ptr = state;
 
     // Connect to X
     state->display = XOpenDisplay(NULL);
@@ -169,105 +175,112 @@ OKO_API b8 platform_startup(
     return true;
 }
 
-OKO_API void platform_shutdown(platform_state* platform_state) {
-    internal_state* state = (internal_state*)platform_state->internal_state;
+OKO_API void platform_system_shutdown(void* state) {
+    if (state_ptr) {
+        // Turn key repeats back on since this is global for the OK
+        XAutoRepeatOn(state_ptr->display);
 
-    // Turn key repeats back on since this is global for the OK
-    XAutoRepeatOn(state->display);
-
-    xcb_destroy_window(state->connection, state->window);
+        xcb_destroy_window(state_ptr->connection, state_ptr->window);
+    }
+    state_ptr = 0;
 }
 
-OKO_API b8 platform_pump_messages(platform_state* platform_state) {
-    internal_state* state = (internal_state*)platform_state->internal_state;
+OKO_API b8 platform_pump_messages() {
+    if (state_ptr) {
+        xcb_generic_event_t* event;
+        xcb_client_message_event_t* cm;
 
-    xcb_generic_event_t* event;
-    xcb_client_message_event_t* cm;
+        b8 quit_flagged = false;
 
-    b8 quit_flagged = false;
+        // Poll for events until null is returned
+        while (event != 0) {
+            event = xcb_poll_for_event(state_ptr->connection);
+            if (event == 0) {
+                break;
+            }
 
-    // Poll for events until null is returned
-    while (event != 0) {
-        event = xcb_poll_for_event(state->connection);
-        if (event == 0) {
-            break;
+            // Input events
+            switch (event->response_type & ~0x80) {
+            case XCB_KEY_PRESS:
+            case XCB_KEY_RELEASE: {
+                // Key press event - xcb_key_press_event_t and
+                // xcb_key_release_event_t are the same
+                xcb_key_press_event_t* kb_event = (xcb_key_press_event_t*)event;
+                b8 pressed = event->response_type == XCB_KEY_PRESS;
+                xcb_keycode_t code = kb_event->detail;
+                KeySym key_sym = XkbKeycodeToKeysym(
+                    state_ptr->display,
+                    (KeyCode)code,
+                    0,
+                    code & ShiftMask ? 1 : 0
+                );
+                keys key = translate_keycode(key_sym);
+
+                // Pass to the input subsystem for processing
+                input_process_key(key, pressed);
+            } break;
+            case XCB_BUTTON_PRESS:
+            case XCB_BUTTON_RELEASE: {
+                xcb_button_press_event_t* mouse_event =
+                    (xcb_button_press_event_t*)event;
+                b8 pressed = event->response_type == XCB_BUTTON_PRESS;
+                buttons mouse_button = BUTTON_MAX_BUTTONS;
+                switch (mouse_event->detail) {
+                case XCB_BUTTON_INDEX_1: mouse_button = BUTTON_LEFT; break;
+                case XCB_BUTTON_INDEX_2: mouse_button = BUTTON_MIDDLE; break;
+                case XCB_BUTTON_INDEX_3: mouse_button = BUTTON_RIGHT; break;
+                }
+
+                // Pass over to the input subsystem.
+                if (mouse_button != BUTTON_MAX_BUTTONS) {
+                    input_process_button(mouse_button, pressed);
+                }
+            } break;
+            case XCB_MOTION_NOTIFY: {
+                // Mouse move
+                xcb_motion_notify_event_t* move_event =
+                    (xcb_motion_notify_event_t*)event;
+
+                // Pass over to the input subsystem.
+                input_process_mouse_move(
+                    move_event->event_x, move_event->event_y
+                );
+            } break;
+            case XCB_CONFIGURE_NOTIFY: {
+                // Resizing - note that this is also triggered by moving the
+                // window, but should be passed anyway since a change in the x/y
+                // could mean an upper-left resize. The application layer can
+                // decide what to do with this.
+                xcb_configure_notify_event_t* configure_event =
+                    (xcb_configure_notify_event_t*)event;
+
+                // Fire the event. The application layer should pick this up,
+                // but not handle it as it should be visible to other parts of
+                // the application
+                event_context context;
+                context.data.u16[0] = (u16)width;
+                context.data.u16[1] = (u16)height;
+                event_fire(EVENT_RESIZED, 0, context);
+            } break;
+            case XCB_CLIENT_MESSAGE: {
+                cm = (xcb_client_message_event_t*)event;
+
+                // Window close
+                if (cm->data.data32[0] == state_ptr->wm_delete_win) {
+                    quit_flagged = true;
+                }
+            } break;
+            default:
+                // Something else
+                break;
+            }
+
+            free(event);
         }
 
-        // Input events
-        switch (event->response_type & ~0x80) {
-        case XCB_KEY_PRESS:
-        case XCB_KEY_RELEASE: {
-            // Key press event - xcb_key_press_event_t and
-            // xcb_key_release_event_t are the same
-            xcb_key_press_event_t* kb_event = (xcb_key_press_event_t*)event;
-            b8 pressed = event->response_type == XCB_KEY_PRESS;
-            xcb_keycode_t code = kb_event->detail;
-            KeySym key_sym = XkbKeycodeToKeysym(
-                state->display, (KeyCode)code, 0, code & ShiftMask ? 1 : 0
-            );
-            keys key = translate_keycode(key_sym);
-
-            // Pass to the input subsystem for processing
-            input_process_key(key, pressed);
-        } break;
-        case XCB_BUTTON_PRESS:
-        case XCB_BUTTON_RELEASE: {
-            xcb_button_press_event_t* mouse_event =
-                (xcb_button_press_event_t*)event;
-            b8 pressed = event->response_type == XCB_BUTTON_PRESS;
-            buttons mouse_button = BUTTON_MAX_BUTTONS;
-            switch (mouse_event->detail) {
-            case XCB_BUTTON_INDEX_1: mouse_button = BUTTON_LEFT; break;
-            case XCB_BUTTON_INDEX_2: mouse_button = BUTTON_MIDDLE; break;
-            case XCB_BUTTON_INDEX_3: mouse_button = BUTTON_RIGHT; break;
-            }
-
-            // Pass over to the input subsystem.
-            if (mouse_button != BUTTON_MAX_BUTTONS) {
-                input_process_button(mouse_button, pressed);
-            }
-        } break;
-        case XCB_MOTION_NOTIFY: {
-            // Mouse move
-            xcb_motion_notify_event_t* move_event =
-                (xcb_motion_notify_event_t*)event;
-
-            // Pass over to the input subsystem.
-            input_process_mouse_move(move_event->event_x, move_event->event_y);
-        } break;
-        case XCB_CONFIGURE_NOTIFY: {
-            // Resizing - note that this is also triggered by moving the
-            // window, but should be passed anyway since a change in the x/y
-            // could mean an upper-left resize. The application layer can
-            // decide what to do with this.
-            xcb_configure_notify_event_t* configure_event =
-                (xcb_configure_notify_event_t*)event;
-
-            // Fire the event. The application layer should pick this up,
-            // but not handle it as it should be visible to other parts of
-            // the application
-            event_context context;
-            context.data.u16[0] = (u16)width;
-            context.data.u16[1] = (u16)height;
-            event_fire(EVENT_RESIZED, 0, context);
-        } break;
-        case XCB_CLIENT_MESSAGE: {
-            cm = (xcb_client_message_event_t*)event;
-
-            // Window close
-            if (cm->data.data32[0] == state->wm_delete_win) {
-                quit_flagged = true;
-            }
-        } break;
-        default:
-            // Something else
-            break;
-        }
-
-        free(event);
+        return !quit_flagged;
     }
-
-    return !quit_flagged;
+    return true;
 }
 
 void* platform_allocate(u64 size, b8 aligned) {
@@ -323,26 +336,25 @@ void platform_push_vulkan_required_extension_names(const char*** names_darray) {
     darray_push(*names_darray, &"VK_KHR_xcb_surface");
 }
 
-b8 platform_create_vulkan_surface(
-    platform_state* platform_state, struct vulkan_context* context
-) {
-    // Simply cold-cast to the known type
-    internal_state* state = (internal_state*)platform_state->internal_state;
+b8 platform_create_vulkan_surface(struct vulkan_context* context) {
+    if (!state_ptr) {
+        return false;
+    }
 
     VkXcbSurfaceCreateInfoKHR create_info = {
         VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
-    create_info.connection = state->connection;
-    create_info.window = state->window;
+    create_info.connection = state_ptr->connection;
+    create_info.window = state_ptr->window;
 
     VkResult result = vkCreateXcbSurfaceKHR(
-        context->instance, &create_info, context->allocator, &state->surface
+        context->instance, &create_info, context->allocator, &state_ptr->surface
     );
     if (result != VK_SUCCESS) {
         OKO_FATAL("Vulkan surface creation failed!");
         return false;
     }
 
-    context->surface = state->surface;
+    context->surface = state_ptr->surface;
     return true;
 }
 

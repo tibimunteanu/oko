@@ -17,7 +17,7 @@ typedef struct logger_system_state {
 
 static logger_system_state* state_ptr;
 
-b8 log_initialize(u64* memory_requirement, void* state) {
+b8 log_system_initialize(u64* memory_requirement, void* state) {
     *memory_requirement = sizeof(logger_system_state);
 
     if (state == 0) {
@@ -31,7 +31,7 @@ b8 log_initialize(u64* memory_requirement, void* state) {
     return true;
 }
 
-void log_shutdown(void* state) {
+void log_system_shutdown(void* state) {
     // TODO: cleanup logging/write queued entries
     state_ptr = 0;
 }

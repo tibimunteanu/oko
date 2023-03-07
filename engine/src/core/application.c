@@ -18,18 +18,29 @@ typedef struct application_state {
     game* game_inst;
     b8 is_running;
     b8 is_suspended;
-    platform_state platform;
     i16 width;
     i16 height;
     clock clock;
     f64 last_time;
     linear_allocator systems_allocator;
 
+    u64 event_system_memory_requirement;
+    void* event_system_state;
+
     u64 memory_system_memory_requirement;
     void* memory_system_state;
 
-    u64 logging_system_memory_requirement;
-    void* logging_system_state;
+    u64 log_system_memory_requirement;
+    void* log_system_state;
+
+    u64 input_system_memory_requirement;
+    void* input_system_state;
+
+    u64 platform_system_memory_requirement;
+    void* platform_system_state;
+
+    u64 renderer_system_memory_requirement;
+    void* renderer_system_state;
 } application_state;
 
 static application_state* app_state;
@@ -66,42 +77,12 @@ b8 application_on_key(
 
             // Block anything else from processing this
             return true;
-        } else if (key_code == KEY_A) {
-            OKO_DEBUG("Explicit - A key pressed!");
-        } else if (key_code == KEY_LALT) {
-            OKO_DEBUG("Explicit - LALT key pressed!");
-        } else if (key_code == KEY_RALT) {
-            OKO_DEBUG("Explicit - RALT key pressed!");
-        } else if (key_code == KEY_LSHIFT) {
-            OKO_DEBUG("Explicit - LSHIFT key pressed!");
-        } else if (key_code == KEY_RSHIFT) {
-            OKO_DEBUG("Explicit - RSHIFT key pressed!");
-        } else if (key_code == KEY_LCONTROL) {
-            OKO_DEBUG("Explicit - LCONTROL key pressed!");
-        } else if (key_code == KEY_RCONTROL) {
-            OKO_DEBUG("Explicit - RCONTROL key pressed!");
         } else {
             OKO_DEBUG("'%c' key pressed!", key_code);
         }
     } else if (code == EVENT_KEY_RELEASED) {
         u16 key_code = context.data.u16[0];
-        if (key_code == KEY_B) {
-            OKO_DEBUG("Explicit - B key released!");
-        } else if (key_code == KEY_LALT) {
-            OKO_DEBUG("Explicit - LALT key released!");
-        } else if (key_code == KEY_RALT) {
-            OKO_DEBUG("Explicit - RALT key released!");
-        } else if (key_code == KEY_LSHIFT) {
-            OKO_DEBUG("Explicit - LSHIFT key released!");
-        } else if (key_code == KEY_RSHIFT) {
-            OKO_DEBUG("Explicit - RSHIFT key released!");
-        } else if (key_code == KEY_LCONTROL) {
-            OKO_DEBUG("Explicit - LCONTROL key released!");
-        } else if (key_code == KEY_RCONTROL) {
-            OKO_DEBUG("Explicit - RCONTROL key released!");
-        } else {
-            OKO_DEBUG("'%c' key released!", key_code);
-        }
+        OKO_DEBUG("'%c' key released!", key_code);
     }
 
     return false;
@@ -165,12 +146,27 @@ b8 application_create(game* game_inst) {
 
     // Initialize subsystems
 
-    memory_initialize(&app_state->memory_system_memory_requirement, 0);
+    // event system
+    event_system_initialize(&app_state->event_system_memory_requirement, 0);
+    app_state->event_system_state = linear_allocator_allocate(
+        &app_state->systems_allocator,
+        app_state->event_system_memory_requirement
+    );
+    if (!event_system_initialize(
+            &app_state->event_system_memory_requirement,
+            app_state->event_system_state
+        )) {
+        OKO_ERROR("Events system failed to initialize!");
+        return false;
+    }
+
+    // memory system
+    memory_system_initialize(&app_state->memory_system_memory_requirement, 0);
     app_state->memory_system_state = linear_allocator_allocate(
         &app_state->systems_allocator,
         app_state->memory_system_memory_requirement
     );
-    if (!memory_initialize(
+    if (!memory_system_initialize(
             &app_state->memory_system_memory_requirement,
             app_state->memory_system_state
         )) {
@@ -178,24 +174,30 @@ b8 application_create(game* game_inst) {
         return false;
     }
 
-    // log
-    log_initialize(&app_state->logging_system_memory_requirement, 0);
-    app_state->logging_system_state = linear_allocator_allocate(
-        &app_state->systems_allocator,
-        app_state->logging_system_memory_requirement
+    // log system
+    log_system_initialize(&app_state->log_system_memory_requirement, 0);
+    app_state->log_system_state = linear_allocator_allocate(
+        &app_state->systems_allocator, app_state->log_system_memory_requirement
     );
-    if (!log_initialize(
-            &app_state->logging_system_memory_requirement,
-            app_state->logging_system_state
+    if (!log_system_initialize(
+            &app_state->log_system_memory_requirement,
+            app_state->log_system_state
         )) {
         OKO_ERROR("Logging system failed to initialize!");
         return false;
     }
 
-    input_initialize();
-
-    if (!event_initialize()) {
-        OKO_ERROR("Event system failed to initialize!");
+    // input system
+    input_system_initialize(&app_state->input_system_memory_requirement, 0);
+    app_state->input_system_state = linear_allocator_allocate(
+        &app_state->systems_allocator,
+        app_state->input_system_memory_requirement
+    );
+    if (!input_system_initialize(
+            &app_state->input_system_memory_requirement,
+            app_state->input_system_state
+        )) {
+        OKO_ERROR("Input system failed to initialize!");
         return false;
     }
 
@@ -204,8 +206,17 @@ b8 application_create(game* game_inst) {
     event_register(EVENT_KEY_RELEASED, 0, application_on_key);
     event_register(EVENT_RESIZED, 0, application_on_resized);
 
-    if (!platform_startup(
-            &app_state->platform,
+    // platform system
+    platform_system_startup(
+        &app_state->platform_system_memory_requirement, 0, 0, 0, 0, 0, 0
+    );
+    app_state->platform_system_state = linear_allocator_allocate(
+        &app_state->systems_allocator,
+        app_state->platform_system_memory_requirement
+    );
+    if (!platform_system_startup(
+            &app_state->platform_system_memory_requirement,
+            app_state->platform_system_state,
             game_inst->app_config.name,
             game_inst->app_config.start_pos_x,
             game_inst->app_config.start_pos_y,
@@ -215,9 +226,18 @@ b8 application_create(game* game_inst) {
         return false;
     }
 
-    // Renderer startup
-    if (!renderer_initialize(
-            game_inst->app_config.name, &app_state->platform
+    // renderer system
+    renderer_system_initialize(
+        &app_state->renderer_system_memory_requirement, 0, 0
+    );
+    app_state->renderer_system_state = linear_allocator_allocate(
+        &app_state->systems_allocator,
+        app_state->renderer_system_memory_requirement
+    );
+    if (!renderer_system_initialize(
+            &app_state->renderer_system_memory_requirement,
+            app_state->renderer_system_state,
+            game_inst->app_config.name
         )) {
         OKO_FATAL("Failed to initialize the renderer. Aborting application.");
         return false;
@@ -229,6 +249,7 @@ b8 application_create(game* game_inst) {
         return false;
     }
 
+    // call resize once to ensure the proper size has been set
     app_state->game_inst->on_resize(
         app_state->game_inst, app_state->width, app_state->height
     );
@@ -249,7 +270,7 @@ b8 application_run() {
     OKO_INFO(memory_get_usage_string());
 
     while (app_state->is_running) {
-        if (!platform_pump_messages(&app_state->platform)) {
+        if (!platform_pump_messages()) {
             app_state->is_running = false;
             break;
         }
@@ -317,16 +338,13 @@ b8 application_run() {
     event_unregister(EVENT_APPLICATION_QUIT, 0, application_on_event);
     event_unregister(EVENT_KEY_PRESSED, 0, application_on_key);
     event_unregister(EVENT_KEY_RELEASED, 0, application_on_key);
-    event_shutdown();
 
-    input_shutdown();
-    log_shutdown(app_state->logging_system_state);
-
-    renderer_shutdown();
-
-    platform_shutdown(&app_state->platform);
-
-    memory_shutdown(&app_state->memory_system_state);
+    input_system_shutdown(app_state->input_system_state);
+    renderer_system_shutdown(app_state->renderer_system_state);
+    platform_system_shutdown(app_state->platform_system_state);
+    log_system_shutdown(app_state->log_system_state);
+    memory_system_shutdown(app_state->memory_system_state);
+    event_system_shutdown(app_state->event_system_state);
 
     return true;
 }

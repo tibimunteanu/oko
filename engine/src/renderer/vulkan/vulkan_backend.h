@@ -3,9 +3,7 @@
 #include "renderer/renderer_backend.h"
 
 b8 vulkan_renderer_backend_initialize(
-    struct renderer_backend* backend,
-    const char* application_name,
-    struct platform_state* platform_state
+    struct renderer_backend* backend, const char* application_name
 );
 
 void vulkan_renderer_backend_shutdown(struct renderer_backend* backend);
