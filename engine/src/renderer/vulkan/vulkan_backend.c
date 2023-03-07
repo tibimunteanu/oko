@@ -17,6 +17,9 @@
 #include "containers/string.h"
 #include "containers/darray.h"
 
+// shaders
+#include "renderer/vulkan/shaders/vulkan_object_shader.h"
+
 // static Vulkan context
 static vulkan_context context;
 static u32 cached_framebuffer_width = 0;
@@ -462,6 +465,12 @@ b8 vulkan_renderer_backend_initialize(
         context.images_in_flight[i] = 0;
     }
     OKO_INFO("Vulkan sync objects created.")
+
+    // create builtin shaders
+    if (!vulkan_object_shader_create(&context, &context.object_shader)) {
+        OKO_ERROR("Failed to create builtin shaders!");
+        return false;
+    }
 
     OKO_INFO("Vulkan renderer initialized successfully!")
     return true;
