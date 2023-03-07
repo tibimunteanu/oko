@@ -35,14 +35,30 @@ static const char* memory_tag_strings[MEMORY_TAG_MAX_TAGS] = {
     "ENTITY_NODE     ",
     "SCENE           "};
 
-static struct memory_stats stats;
+typedef struct memory_system_state {
+    struct memory_stats stats;
 
-void memory_initialize() {
-    platform_zero_memory(&stats, sizeof(stats));
+    u64 alloc_count;
+    u64 tagged_allocations[MEMORY_TAG_MAX_TAGS];
+} memory_system_state;
+
+static memory_system_state* state_ptr;
+
+b8 memory_initialize(u64* memory_requirement, void* state) {
+    *memory_requirement = sizeof(memory_system_state);
+    if (state == 0) {
+        return true;
+    }
+
+    state_ptr = (memory_system_state*)state;
+    state_ptr->alloc_count = 0;
+
+    platform_zero_memory(&state_ptr->stats, sizeof(state_ptr->stats));
+    return true;
 }
 
-void memory_shutdown() {
-    // NOTE: Nothing for now
+void memory_shutdown(void* state) {
+    state_ptr = 0;
 }
 
 void* memory_allocate(u64 size, memory_tag tag) {
@@ -53,8 +69,11 @@ void* memory_allocate(u64 size, memory_tag tag) {
         );
     }
 
-    stats.total_allocated += size;
-    stats.tagged_allocations[tag] += size;
+    if (state_ptr) {
+        state_ptr->stats.total_allocated += size;
+        state_ptr->stats.tagged_allocations[tag] += size;
+        state_ptr->alloc_count++;
+    }
 
     // TODO: Memory alignment
     void* block = platform_allocate(size, false);
@@ -70,8 +89,10 @@ void memory_free(void* block, u64 size, memory_tag tag) {
         );
     }
 
-    stats.total_allocated -= size;
-    stats.tagged_allocations[tag] -= size;
+    if (state_ptr) {
+        state_ptr->stats.total_allocated -= size;
+        state_ptr->stats.tagged_allocations[tag] -= size;
+    }
 
     // TODO: Memory alignment
     platform_free(block, false);
@@ -99,19 +120,19 @@ char* memory_get_usage_string() {
     for (u32 i = 0; i < MEMORY_TAG_MAX_TAGS; i++) {
         char unit[4] = "XiB";
         float amount = 1.0f;
-        if (stats.tagged_allocations[i] >= gib) {
+        if (state_ptr->stats.tagged_allocations[i] >= gib) {
             unit[0] = 'G';
-            amount = stats.tagged_allocations[i] / (float)gib;
-        } else if (stats.tagged_allocations[i] >= mib) {
+            amount = state_ptr->stats.tagged_allocations[i] / (float)gib;
+        } else if (state_ptr->stats.tagged_allocations[i] >= mib) {
             unit[0] = 'M';
-            amount = stats.tagged_allocations[i] / (float)mib;
-        } else if (stats.tagged_allocations[i] >= kib) {
+            amount = state_ptr->stats.tagged_allocations[i] / (float)mib;
+        } else if (state_ptr->stats.tagged_allocations[i] >= kib) {
             unit[0] = 'K';
-            amount = stats.tagged_allocations[i] / (float)kib;
+            amount = state_ptr->stats.tagged_allocations[i] / (float)kib;
         } else {
             unit[0] = 'B';
             unit[1] = 0;
-            amount = stats.tagged_allocations[i];
+            amount = state_ptr->stats.tagged_allocations[i];
         }
 
         i32 length = snprintf(
@@ -128,4 +149,11 @@ char* memory_get_usage_string() {
     // NOTE: return a dynamically allocated buffer
     char* out_string = string_duplicate(buffer);
     return out_string;
+}
+
+u64 memory_get_alloc_count() {
+    if (!state_ptr) {
+        return 0;
+    }
+    return state_ptr->alloc_count;
 }

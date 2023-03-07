@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/log.h"
-#include "core/memory.h"
 #include "core/application.h"
 
 #include "game_types.h"
@@ -11,8 +10,6 @@ extern b8 create_game(game* out_game);
 
 // The main entry point of the application
 int main(void) {
-    memory_initialize();
-
     // Request the game instance from the application.
     game game_inst;
     if (!create_game(&game_inst)) {
@@ -38,8 +35,6 @@ int main(void) {
         OKO_INFO("Application did not shutdown gracefully!");
         return 2;
     }
-
-    memory_shutdown();
 
     return 0;
 }

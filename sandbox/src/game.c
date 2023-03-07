@@ -1,5 +1,8 @@
 #include "game.h"
 
+#include "core/input.h"
+#include "core/memory.h"
+
 // Define the function to create a game
 b8 create_game(game* out_game) {
     // Set application config
@@ -18,6 +21,9 @@ b8 create_game(game* out_game) {
     // Create the game state
     out_game->state = memory_allocate(sizeof(game_state), MEMORY_TAG_GAME);
 
+    // TODO: This should be set by the application
+    out_game->application_state = 0;
+
     return true;
 }
 
@@ -26,6 +32,18 @@ b8 game_initialize(game* game_inst) {
     return true;
 }
 b8 game_update(game* game_inst, f32 delta_time) {
+    static u64 alloc_count = 0;
+    u64 prev_alloc_count = alloc_count;
+    alloc_count = memory_get_alloc_count();
+
+    if (input_is_key_up('M') && input_was_key_down('M')) {
+        OKO_DEBUG(
+            "Alloc count: %llu (%llu this frame)",
+            alloc_count,
+            alloc_count - prev_alloc_count
+        );
+    }
+
     return true;
 }
 b8 game_render(game* game_inst, f32 delta_time) {

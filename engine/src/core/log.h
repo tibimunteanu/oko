@@ -24,8 +24,8 @@ typedef enum log_level {
     LOG_LEVEL_TRACE = 5
 } log_level;
 
-b8 log_initialize();
-void log_shutdown();
+b8 log_initialize(u64* memory_requirement, void* state);
+void log_shutdown(void* state);
 
 OKO_API void log_output(log_level level, const char* message, ...);
 
