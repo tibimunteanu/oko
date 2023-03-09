@@ -9,6 +9,7 @@
 #include "renderer/vulkan/vulkan_command_buffer.h"
 #include "renderer/vulkan/vulkan_framebuffer.h"
 #include "renderer/vulkan/vulkan_fence.h"
+#include "renderer/vulkan/vulkan_buffer.h"
 
 #include "core/log.h"
 #include "core/memory.h"
@@ -16,6 +17,8 @@
 
 #include "containers/string.h"
 #include "containers/darray.h"
+
+#include "math/math_types.h"
 
 // shaders
 #include "renderer/vulkan/shaders/vulkan_object_shader.h"
@@ -70,6 +73,47 @@ i32 find_memory_index(u32 type_filter, u32 property_flags) {
     OKO_WARN("Unable to find suitable memory type!");
 
     return -1;
+}
+
+b8 create_buffers(vulkan_context* context) {
+    VkMemoryPropertyFlagBits memory_property_flags =
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    const u64 vertex_buffer_size = sizeof(vertex_3d) * 1024 * 1024;
+    if (!vulkan_buffer_create(
+            context,
+            vertex_buffer_size,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            memory_property_flags,
+            true,
+            &context->object_vertex_buffer
+        )) {
+        OKO_ERROR("Failed to create vertex buffer.");
+        return false;
+    }
+
+    context->geometry_vertex_offset = 0;
+
+    u64 index_buffer_size = sizeof(u32) * 1024 * 1024;
+    if (!vulkan_buffer_create(
+            context,
+            index_buffer_size,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            memory_property_flags,
+            true,
+            &context->object_index_buffer
+        )) {
+        OKO_ERROR("Failed to create index buffer.");
+        return false;
+    }
+
+    context->geometry_index_offset = 0;
+
+    OKO_INFO("Buffers created.");
+    return true;
 }
 
 void create_command_buffers(renderer_backend* backend) {
@@ -472,6 +516,8 @@ b8 vulkan_renderer_backend_initialize(
         return false;
     }
 
+    create_buffers(&context);
+
     OKO_INFO("Vulkan renderer initialized successfully!")
     return true;
 }
@@ -479,6 +525,11 @@ b8 vulkan_renderer_backend_initialize(
 void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
     vkDeviceWaitIdle(context.device.logical_device);
 
+    OKO_DEBUG("Destroying vulkan buffers...");
+    vulkan_buffer_destroy(&context, &context.object_vertex_buffer);
+    vulkan_buffer_destroy(&context, &context.object_index_buffer);
+
+    OKO_DEBUG("Destroying vulkan shaders...");
     vulkan_object_shader_destroy(&context, &context.object_shader);
 
     OKO_DEBUG("Destroying vulkan sync objects...");
