@@ -267,6 +267,45 @@ b8 recreate_swapchain(renderer_backend* backend) {
 }
 
 // PUBLIC
+void upload_data_range(
+    vulkan_context* context,
+    VkCommandPool pool,
+    VkFence fence,
+    VkQueue queue,
+    vulkan_buffer* buffer,
+    u64 offset,
+    u64 size,
+    void* data
+) {
+    // create a host-visible staging buffer to upload to. mark it as the source
+    // of the transfer
+    VkBufferUsageFlags flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    vulkan_buffer staging;
+    vulkan_buffer_create(
+        context, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, flags, true, &staging
+    );
+
+    // load the data into the staging buffer
+    vulkan_buffer_load_data(context, &staging, 0, size, 0, data);
+
+    // perform the copy from the staging buffer to the device local buffer
+    vulkan_buffer_copy_to(
+        context,
+        pool,
+        fence,
+        queue,
+        staging.handle,
+        0,
+        buffer->handle,
+        offset,
+        size
+    );
+
+    // cleanup the staging buffer
+    vulkan_buffer_destroy(context, &staging);
+}
+
 b8 vulkan_renderer_backend_initialize(
     struct renderer_backend* backend, const char* application_name
 ) {
@@ -518,6 +557,49 @@ b8 vulkan_renderer_backend_initialize(
 
     create_buffers(&context);
 
+    // TODO: temporary test code
+    const u32 vert_count = 4;
+    vertex_3d verts[vert_count];
+    memory_zero(verts, sizeof(verts) * vert_count);
+
+    verts[0].position.x = 0.0;
+    verts[0].position.y = -0.5;
+
+    verts[1].position.x = 0.5;
+    verts[1].position.y = 0.5;
+
+    verts[2].position.x = 0.0;
+    verts[2].position.y = 0.5;
+
+    verts[3].position.x = 0.5;
+    verts[3].position.y = -0.5;
+
+    const u32 index_count = 6;
+    u32 indices[index_count] = {0, 1, 2, 0, 3, 1};
+
+    upload_data_range(
+        &context,
+        context.device.graphics_command_pool,
+        0,
+        context.device.graphics_queue,
+        &context.object_vertex_buffer,
+        0,
+        sizeof(vertex_3d) * vert_count,
+        verts
+    );
+
+    upload_data_range(
+        &context,
+        context.device.graphics_command_pool,
+        0,
+        context.device.graphics_queue,
+        &context.object_index_buffer,
+        0,
+        sizeof(u32) * index_count,
+        indices
+    );
+    // TODO: end temp code
+
     OKO_INFO("Vulkan renderer initialized successfully!")
     return true;
 }
@@ -737,6 +819,31 @@ b8 vulkan_renderer_backend_begin_frame(
         &context.main_renderpass,
         context.swapchain.framebuffers[context.image_index].handle
     );
+
+    // TODO: temporary test code
+    vulkan_object_shader_use(&context, &context.object_shader);
+
+    // bind vertex buffer at offset
+    VkDeviceSize offsets[1] = {0};
+    vkCmdBindVertexBuffers(
+        command_buffer->handle,
+        0,
+        1,
+        &context.object_vertex_buffer.handle,
+        (VkDeviceSize*)offsets
+    );
+
+    // bind index buffer at offset
+    vkCmdBindIndexBuffer(
+        command_buffer->handle,
+        context.object_index_buffer.handle,
+        0,
+        VK_INDEX_TYPE_UINT32
+    );
+
+    // issue draw command
+    vkCmdDrawIndexed(command_buffer->handle, 6, 1, 0, 0, 0);
+    // TODO: end temporary test code
 
     return true;
 }
