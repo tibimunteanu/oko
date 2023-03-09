@@ -477,8 +477,9 @@ b8 vulkan_renderer_backend_initialize(
 }
 
 void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
-    //
     vkDeviceWaitIdle(context.device.logical_device);
+
+    vulkan_object_shader_destroy(&context, &context.object_shader);
 
     OKO_DEBUG("Destroying vulkan sync objects...");
     for (u8 i = 0; i < context.swapchain.max_frames_in_flight; i++) {
