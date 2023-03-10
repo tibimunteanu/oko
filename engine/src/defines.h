@@ -44,6 +44,8 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
 #define true  1
 #define false 0
 
+#define INVALID_ID 4294967295U // largest u32 equivalent to -1
+
 // Platform detection
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
   #define OKO_PLATFORM_WINDOWS 1
@@ -67,7 +69,7 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
   #define OKO_PLATFORM_APPLE 1
   #include <TargetConditionals.h>
   #if TARGET_IPHONE_SIMULATOR
-    // iOS Simulator
+        // iOS Simulator
     #define OKO_PLATFORM_IOS           1
     #define OKO_PLATFORM_IOS_SIMULATOR 1
   #elif TARGET_OS_IPHONE

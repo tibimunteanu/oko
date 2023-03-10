@@ -18,9 +18,19 @@ void vulkan_object_shader_use(
 );
 
 void vulkan_object_shader_update_global_state(
-    vulkan_context* context, vulkan_object_shader* shader
+    vulkan_context* context, vulkan_object_shader* shader, f32 delta_time
 );
 
 void vulkan_object_shader_update_object(
-    vulkan_context* context, vulkan_object_shader* shader, mat4 model
+    vulkan_context* context,
+    vulkan_object_shader* shader,
+    geometry_render_data data
+);
+
+b8 vulkan_object_shader_acquire_resources(
+    vulkan_context* context, vulkan_object_shader* shader, u32* out_object_id
+);
+
+void vulkan_object_shader_release_resources(
+    vulkan_context* context, vulkan_object_shader* shader, u32 object_id
 );

@@ -6,12 +6,16 @@
 
 #include "math/math.h"
 
+#include "resources/resource_types.h"
+
 typedef struct renderer_system_state {
     renderer_backend backend;
     mat4 projection;
     mat4 view;
     f32 near_clip;
     f32 far_clip;
+
+    texture default_texture;
 } renderer_system_state;
 
 static renderer_system_state* state_ptr;
@@ -48,11 +52,54 @@ b8 renderer_system_initialize(
     state_ptr->view = mat4_translation((vec3) {0.0f, 0.0f, 30.0f});
     state_ptr->view = mat4_inverse(state_ptr->view);
 
+    // NOTE: create default texture, a 256x256 blue/white checkerboard pattern.
+    // this is done in code to eliminate asset dependencies
+    OKO_TRACE("Creating default texture");
+    const u32 tex_dimension = 256;
+    const u32 channels = 4;
+    const u32 pixel_count = tex_dimension * tex_dimension;
+    u8 pixels[pixel_count * channels];
+    // u8* pixels = memory_allocate(sizeof(u8) * pixel_count * channels,
+    // MEMORY_TAG_TEXTURE);
+    memory_set(pixels, 255, sizeof(u8) * pixel_count * channels);
+
+    // each pixel
+    for (u64 row = 0; row < tex_dimension; row++) {
+        for (u64 col = 0; col < tex_dimension; col++) {
+            u64 index = (row * tex_dimension) + col;
+            u64 channel_index = index * channels;
+            if (row % 2) {
+                if (col % 2) {
+                    pixels[channel_index + 0] = 0;
+                    pixels[channel_index + 1] = 0;
+                }
+            } else {
+                if (!(col % 2)) {
+                    pixels[channel_index + 0] = 0;
+                    pixels[channel_index + 1] = 0;
+                }
+            }
+        }
+    }
+
+    renderer_create_texture(
+        "default",
+        false,
+        tex_dimension,
+        tex_dimension,
+        4,
+        pixels,
+        false,
+        &state_ptr->default_texture
+    );
+
     return true;
 }
 
 void renderer_system_shutdown(void* state) {
     if (state_ptr) {
+        renderer_destroy_texture(&state_ptr->default_texture);
+
         state_ptr->backend.shutdown(&state_ptr->backend);
     }
     state_ptr = 0;
@@ -103,9 +150,14 @@ b8 renderer_draw_frame(render_packet* packet) {
         // mat4 model = mat4_translation((vec3) {0.0f, 0.0f, 0.0f});
         static f32 angle = 0.0f;
         angle += 2.0f * packet->delta_time;
-        quat rotation = quat_from_axis_angle(vec3_forward(), angle, false);
-        mat4 model = quat_to_rotation_matrix(rotation, vec3_zero());
-        state_ptr->backend.update_object(model);
+        // quat rotation = quat_from_axis_angle(vec3_forward(), angle, false);
+        // mat4 model = quat_to_rotation_matrix(rotation, vec3_zero());
+        mat4 model = mat4_translation((vec3) {0.0f, 0.0f, 0.0f});
+        geometry_render_data data = {};
+        data.object_id = 0;  // TODO: actual object_id
+        data.model = model;
+        data.textures[0] = &state_ptr->default_texture;
+        state_ptr->backend.update_object(data);
 
         // End the frame. If this fails, it is likely unrecoverable.
         b8 result = renderer_end_frame(packet->delta_time);
