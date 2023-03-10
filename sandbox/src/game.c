@@ -121,10 +121,10 @@ b8 game_update(game* game_inst, f32 delta_time) {
         velocity = vec3_add(velocity, backward);
     }
     if (input_is_key_down(KEY_SPACE)) {
-        velocity.y += 1.0f;
+        velocity.y += move_speed * delta_time;
     }
     if (input_is_key_down('X')) {
-        velocity.y -= 1.0f;
+        velocity.y -= move_speed * delta_time;
     }
 
     vec3 z = vec3_zero();
