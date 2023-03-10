@@ -34,6 +34,8 @@ typedef struct renderer_backend {
       i32 mode);
 
     b8 (*end_frame)(struct renderer_backend* backend, f32 delta_time);
+
+    void (*update_object)(mat4 model);
 } renderer_backend;
 
 typedef struct render_packet {

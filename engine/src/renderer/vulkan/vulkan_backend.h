@@ -23,3 +23,5 @@ void vulkan_renderer_update_global_state(
 b8 vulkan_renderer_backend_end_frame(
     struct renderer_backend* backend, f32 delta_time
 );
+
+void vulkan_renderer_backend_update_object(mat4 model);
