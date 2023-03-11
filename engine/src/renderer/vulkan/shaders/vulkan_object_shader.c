@@ -203,14 +203,16 @@ b8 vulkan_object_shader_create(
     }
 
     // create the uniform buffers
+    u32 device_local_bits = context->device.supports_device_local_host_visible
+                              ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+                              : 0;
     if (!vulkan_buffer_create(
             context,
             sizeof(global_uniform_object) * 3,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | device_local_bits,
             true,
             &out_shader->global_uniform_buffer
         )) {
@@ -239,8 +241,7 @@ b8 vulkan_object_shader_create(
             sizeof(object_uniform_object),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             true,
             &out_shader->object_uniform_buffer
@@ -458,7 +459,8 @@ void vulkan_object_shader_update_object(
                  .generations[image_index];
 
         // if the texture hasn't been loaded yet, use the default
-        // TODO: determine which use the texture has and pull appropriate default
+        // TODO: determine which use the texture has and pull appropriate
+        // default
         if (t->generation == INVALID_ID) {
             t = shader->default_diffuse;
 

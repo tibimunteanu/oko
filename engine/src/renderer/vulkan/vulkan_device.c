@@ -299,6 +299,19 @@ b8 select_physical_device(vulkan_context* context) {
         VkPhysicalDeviceMemoryProperties memory;
         vkGetPhysicalDeviceMemoryProperties(physical_devices[i], &memory);
 
+        // check if device supports local/host visible combo
+        b8 supports_device_local_host_visible = false;
+        for (u32 i = 0; i < memory.memoryTypeCount; i++) {
+            // check each memory type to see if its bit is set to 1
+            if ((memory.memoryTypes[i].propertyFlags &
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) &&
+                (memory.memoryTypes[i].propertyFlags &
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
+                supports_device_local_host_visible = true;
+                break;
+            }
+        }
+
         // TODO: These requirements should be driven by config, but for now by a
         // struct
         vulkan_physical_device_requirements requirements = {};
@@ -340,6 +353,8 @@ b8 select_physical_device(vulkan_context* context) {
             context->device.properties = properties;
             context->device.features = features;
             context->device.memory = memory;
+            context->device.supports_device_local_host_visible =
+                supports_device_local_host_visible;
 
             break;
         }

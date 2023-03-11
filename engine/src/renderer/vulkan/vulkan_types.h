@@ -36,6 +36,7 @@ typedef struct vulkan_device {
     i32 present_queue_index;
     i32 compute_queue_index;
     i32 transfer_queue_index;
+    b8 supports_device_local_host_visible;
     VkQueue graphics_queue;
     VkQueue present_queue;
     VkQueue transfer_queue;
