@@ -6,9 +6,7 @@
 #include "renderer/renderer_types.h"
 
 b8 vulkan_material_shader_create(
-    vulkan_context* context,
-    texture* default_diffuse,
-    vulkan_material_shader* out_shader
+    vulkan_context* context, vulkan_material_shader* out_shader
 );
 
 void vulkan_material_shader_destroy(

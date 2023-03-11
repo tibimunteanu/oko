@@ -1,6 +1,7 @@
 #include "test_manager.h"
 
 #include "memory/linear_allocator_tests.h"
+#include "containers/hashtable_tests.h"
 
 #include <core/log.h>
 
@@ -9,6 +10,7 @@ int main() {
 
     // add test registrations here.
     linear_allocator_register_tests();
+    hashtable_register_tests();
 
     OKO_DEBUG("Starting tests...");
 

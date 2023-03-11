@@ -7,13 +7,11 @@
 #include "math/math.h"
 
 #include "resources/resource_types.h"
+#include "systems/texture_system.h"
 
 // TODO: temporary
 #include "containers/string.h"
 #include "core/event.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "vendor/stb_image.h"
 // TODO: end temporary
 
 typedef struct renderer_system_state {
@@ -23,112 +21,12 @@ typedef struct renderer_system_state {
     f32 near_clip;
     f32 far_clip;
 
-    texture default_texture;
-
     // TODO: temporary
-    texture test_diffuse;
+    texture* test_diffuse;
     // TODO: end temporary
 } renderer_system_state;
 
 static renderer_system_state* state_ptr;
-
-void create_texture(texture* t) {
-    memory_zero(t, sizeof(texture));
-    t->generation = INVALID_ID;
-}
-
-b8 load_texture(const char* texture_name, texture* t) {
-    // TODO: should be able to be located anywhere
-    char* format_str = "assets/textures/%s.%s";
-    const i32 required_channel_count = 4;
-    stbi_set_flip_vertically_on_load(true);
-    char full_file_path[512];
-
-    // TODO: try different extensions
-    string_format(full_file_path, format_str, texture_name, "png");
-
-    // use a temporary texture to load into
-    texture temp_texture;
-
-    u8* data = stbi_load(
-        full_file_path,
-        (i32*)&temp_texture.width,
-        (i32*)&temp_texture.height,
-        (i32*)&temp_texture.channel_count,
-        required_channel_count
-    );
-
-    temp_texture.channel_count = required_channel_count;
-
-    if (!data) {
-        if (stbi_failure_reason()) {
-            OKO_WARN(
-                "Failed to load texture: '%s': %s",
-                texture_name,
-                stbi_failure_reason()
-            );
-            return false;
-        }
-        return false;
-    }
-
-    u32 current_generation = t->generation;
-    t->generation = INVALID_ID;
-
-    u64 total_size =
-        temp_texture.width * temp_texture.height * required_channel_count;
-
-    // check for transparency
-    b32 has_transparency = false;
-    for (u64 i = 0; i < total_size; i += required_channel_count) {
-        u8 a = data[i + 3];
-        if (a < 255) {
-            has_transparency = true;
-            break;
-        }
-    }
-
-    if (stbi_failure_reason()) {
-        OKO_WARN(
-            "Failed to load texture: '%s': %s",
-            texture_name,
-            stbi_failure_reason()
-        );
-        return false;
-    }
-
-    // acquire internal texture resources and upload to GPU
-    renderer_create_texture(
-        texture_name,
-        true,
-        temp_texture.width,
-        temp_texture.height,
-        temp_texture.channel_count,
-        data,
-        has_transparency,
-        &temp_texture
-    );
-
-    // take a copy of the old texture
-    texture old = *t;
-
-    // assign the temp texture to the pointer
-    *t = temp_texture;
-
-    // destroy the old texture
-    renderer_destroy_texture(&old);
-
-    if (current_generation == INVALID_ID) {
-        t->generation = 0;
-    } else {
-        t->generation = current_generation + 1;
-    }
-
-    // clean up data
-    stbi_image_free(data);
-
-    return true;
-}
 
 // TODO: temporary
 b8 event_on_debug_event(
@@ -138,10 +36,18 @@ b8 event_on_debug_event(
 
     static i8 choice = 2;
 
+    // save off the old name
+    const char* old_name = names[choice];
+
     choice++;
     choice %= 3;
 
-    load_texture(names[choice], &state_ptr->test_diffuse);
+    // acquire the new texture
+    state_ptr->test_diffuse = texture_system_acquire(names[choice], true);
+
+    // release the old texture
+    texture_system_release(old_name);
+
     return true;
 }
 // TODO: end temporary
@@ -158,9 +64,6 @@ b8 renderer_system_initialize(
     // TODO: temporary
     event_register(EVENT_CODE_DEBUG0, state_ptr, event_on_debug_event);
     // TODO: end temporary
-
-    // take a pointer to default textures for use in the backend
-    state_ptr->backend.default_diffuse = &state_ptr->default_texture;
 
     // TODO: make this configurable
     renderer_backend_create(RENDERER_BACKEND_VULKAN, &state_ptr->backend);
@@ -185,53 +88,6 @@ b8 renderer_system_initialize(
     state_ptr->view = mat4_translation((vec3) {0.0f, 0.0f, 30.0f});
     state_ptr->view = mat4_inverse(state_ptr->view);
 
-    // NOTE: create default texture, a 256x256 blue/white checkerboard pattern.
-    // this is done in code to eliminate asset dependencies
-    OKO_TRACE("Creating default texture");
-    const u32 tex_dimension = 256;
-    const u32 channels = 4;
-    const u32 pixel_count = tex_dimension * tex_dimension;
-    u8 pixels[pixel_count * channels];
-    // u8* pixels = memory_allocate(sizeof(u8) * pixel_count * channels,
-    // MEMORY_TAG_TEXTURE);
-    memory_set(pixels, 255, sizeof(u8) * pixel_count * channels);
-
-    // each pixel
-    for (u64 row = 0; row < tex_dimension; row++) {
-        for (u64 col = 0; col < tex_dimension; col++) {
-            u64 index = (row * tex_dimension) + col;
-            u64 channel_index = index * channels;
-            if (row % 2) {
-                if (col % 2) {
-                    pixels[channel_index + 0] = 0;
-                    pixels[channel_index + 1] = 0;
-                }
-            } else {
-                if (!(col % 2)) {
-                    pixels[channel_index + 0] = 0;
-                    pixels[channel_index + 1] = 0;
-                }
-            }
-        }
-    }
-
-    renderer_create_texture(
-        "default",
-        false,
-        tex_dimension,
-        tex_dimension,
-        4,
-        pixels,
-        false,
-        &state_ptr->default_texture
-    );
-
-    // manually set the texture generation to invalid since this is a default
-    state_ptr->default_texture.generation = INVALID_ID;
-
-    // TODO: load other textures
-    create_texture(&state_ptr->test_diffuse);
-
     return true;
 }
 
@@ -240,9 +96,6 @@ void renderer_system_shutdown(void* state) {
         // TODO: temporary
         event_unregister(EVENT_CODE_DEBUG0, state_ptr, event_on_debug_event);
         // TODO: end temporary
-
-        renderer_destroy_texture(&state_ptr->default_texture);
-        renderer_destroy_texture(&state_ptr->test_diffuse);
 
         state_ptr->backend.shutdown(&state_ptr->backend);
     }
@@ -300,7 +153,14 @@ b8 renderer_draw_frame(render_packet* packet) {
         geometry_render_data data = {};
         data.object_id = 0;  // TODO: actual object_id
         data.model = model;
-        data.textures[0] = &state_ptr->test_diffuse;
+
+        // TODO: temporary
+        // grab the default if does not exist
+        if (!state_ptr->test_diffuse) {
+            state_ptr->test_diffuse = texture_system_get_default_texture();
+        }
+
+        data.textures[0] = state_ptr->test_diffuse;
         state_ptr->backend.update_object(data);
 
         // End the frame. If this fails, it is likely unrecoverable.
@@ -321,7 +181,6 @@ void renderer_set_view(mat4 view) {
 
 void renderer_create_texture(
     const char* name,
-    b8 auto_release,
     i32 width,
     i32 height,
     i32 channel_count,
@@ -331,7 +190,6 @@ void renderer_create_texture(
 ) {
     state_ptr->backend.create_texture(
         name,
-        auto_release,
         width,
         height,
         channel_count,

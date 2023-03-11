@@ -34,9 +34,6 @@ typedef struct geometry_render_data {
 typedef struct renderer_backend {
     u64 frame_number;
 
-    // pointers to default textures
-    texture* default_diffuse;
-
     b8 (*initialize
     )(struct renderer_backend* backend, const char* application_name);
     void (*shutdown)(struct renderer_backend* backend);
@@ -56,7 +53,6 @@ typedef struct renderer_backend {
 
     void (*create_texture
     )(const char* name,
-      b8 auto_release,
       i32 width,
       i32 height,
       i32 channel_count,

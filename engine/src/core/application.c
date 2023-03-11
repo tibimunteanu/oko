@@ -1,5 +1,7 @@
 #include "core/application.h"
 
+#include "game_types.h"
+
 #include "core/log.h"
 #include "core/memory.h"
 #include "core/event.h"
@@ -7,12 +9,11 @@
 #include "core/clock.h"
 
 #include "memory/linear_allocator.h"
-
+#include "platform/platform.h"
 #include "renderer/renderer.h"
 
-#include "platform/platform.h"
-
-#include "game_types.h"
+// systems
+#include "systems/texture_system.h"
 
 typedef struct application_state {
     game* game_inst;
@@ -41,6 +42,9 @@ typedef struct application_state {
 
     u64 renderer_system_memory_requirement;
     void* renderer_system_state;
+
+    u64 texture_system_memory_requirement;
+    void* texture_system_state;
 } application_state;
 
 static application_state* app_state;
@@ -243,7 +247,28 @@ b8 application_create(game* game_inst) {
         return false;
     }
 
-    // Initialize the game
+    // texture system
+    texture_system_config texture_sys_config;
+    texture_sys_config.max_texture_count = 65536;
+    texture_system_initialize(
+        &app_state->texture_system_memory_requirement, 0, texture_sys_config
+    );
+    app_state->texture_system_state = linear_allocator_allocate(
+        &app_state->systems_allocator,
+        app_state->texture_system_memory_requirement
+    );
+    if (!texture_system_initialize(
+            &app_state->texture_system_memory_requirement,
+            app_state->texture_system_state,
+            texture_sys_config
+        )) {
+        OKO_FATAL(
+            "Failed to initialize the texture system. Aborting application."
+        );
+        return false;
+    }
+
+    // initialize the game
     if (!app_state->game_inst->initialize(app_state->game_inst)) {
         OKO_FATAL("Game failed to initialize!");
         return false;
@@ -340,6 +365,7 @@ b8 application_run() {
     event_unregister(EVENT_KEY_RELEASED, 0, application_on_key);
 
     input_system_shutdown(app_state->input_system_state);
+    texture_system_shutdown(app_state->texture_system_state);
     renderer_system_shutdown(app_state->renderer_system_state);
     platform_system_shutdown(app_state->platform_system_state);
     log_system_shutdown(app_state->log_system_state);
