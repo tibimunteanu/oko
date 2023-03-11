@@ -22,7 +22,7 @@
 #include "math/math_types.h"
 
 // shaders
-#include "renderer/vulkan/shaders/vulkan_object_shader.h"
+#include "renderer/vulkan/shaders/vulkan_material_shader.h"
 
 // static Vulkan context
 static vulkan_context context;
@@ -550,8 +550,8 @@ b8 vulkan_renderer_backend_initialize(
     OKO_INFO("Vulkan sync objects created.")
 
     // create builtin shaders
-    if (!vulkan_object_shader_create(
-            &context, backend->default_diffuse, &context.object_shader
+    if (!vulkan_material_shader_create(
+            &context, backend->default_diffuse, &context.material_shader
         )) {
         OKO_ERROR("Failed to create builtin shaders!");
         return false;
@@ -612,8 +612,8 @@ b8 vulkan_renderer_backend_initialize(
     );
 
     u32 object_id = 0;
-    if (!vulkan_object_shader_acquire_resources(
-            &context, &context.object_shader, &object_id
+    if (!vulkan_material_shader_acquire_resources(
+            &context, &context.material_shader, &object_id
         )) {
         OKO_ERROR("Failed to acquire shader resources!");
         return false;
@@ -633,7 +633,7 @@ void vulkan_renderer_backend_shutdown(struct renderer_backend* backend) {
     vulkan_buffer_destroy(&context, &context.object_index_buffer);
 
     OKO_DEBUG("Destroying vulkan shaders...");
-    vulkan_object_shader_destroy(&context, &context.object_shader);
+    vulkan_material_shader_destroy(&context, &context.material_shader);
 
     OKO_DEBUG("Destroying vulkan sync objects...");
     for (u8 i = 0; i < context.swapchain.max_frames_in_flight; i++) {
@@ -851,16 +851,16 @@ void vulkan_renderer_update_global_state(
     vulkan_command_buffer* command_buffer =
         &context.graphics_command_buffers[context.image_index];
 
-    vulkan_object_shader_use(&context, &context.object_shader);
+    vulkan_material_shader_use(&context, &context.material_shader);
 
-    context.object_shader.global_ubo.projection = projection;
-    context.object_shader.global_ubo.view = view;
-    // context.object_shader.global_ubo.view_position = view_position;
-    // context.object_shader.global_ubo.ambient_color = ambient_color;
-    // context.object_shader.global_ubo.mode = mode;
+    context.material_shader.global_ubo.projection = projection;
+    context.material_shader.global_ubo.view = view;
+    // context.material_shader.global_ubo.view_position = view_position;
+    // context.material_shader.global_ubo.ambient_color = ambient_color;
+    // context.material_shader.global_ubo.mode = mode;
 
-    vulkan_object_shader_update_global_state(
-        &context, &context.object_shader, context.frame_delta_time
+    vulkan_material_shader_update_global_state(
+        &context, &context.material_shader, context.frame_delta_time
     );
 }
 
@@ -957,10 +957,12 @@ void vulkan_renderer_backend_update_object(geometry_render_data data) {
     vulkan_command_buffer* command_buffer =
         &context.graphics_command_buffers[context.image_index];
 
-    vulkan_object_shader_update_object(&context, &context.object_shader, data);
+    vulkan_material_shader_update_object(
+        &context, &context.material_shader, data
+    );
 
     // TODO: temporary test code
-    vulkan_object_shader_use(&context, &context.object_shader);
+    vulkan_material_shader_use(&context, &context.material_shader);
 
     // bind vertex buffer at offset
     VkDeviceSize offsets[1] = {0};
