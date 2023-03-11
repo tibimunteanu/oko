@@ -13,8 +13,12 @@
 #define BUILTIN_SHADER_NAME_OBJECT "Builtin.ObjectShader"
 
 b8 vulkan_object_shader_create(
-    vulkan_context* context, vulkan_object_shader* out_shader
+    vulkan_context* context,
+    texture* default_diffuse,
+    vulkan_object_shader* out_shader
 ) {
+    out_shader->default_diffuse = default_diffuse;
+
     char stage_type_strs[OBJECT_SHADER_STAGE_COUNT][5] = {"vert", "frag"};
     VkShaderStageFlagBits stage_types[OBJECT_SHADER_STAGE_COUNT] = {
         VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT};
@@ -452,6 +456,15 @@ void vulkan_object_shader_update_object(
         u32* descriptor_generation =
             &object_state->descriptor_states[descriptor_index]
                  .generations[image_index];
+
+        // if the texture hasn't been loaded yet, use the default
+        // TODO: determine which use the texture has and pull appropriate default
+        if (t->generation == INVALID_ID) {
+            t = shader->default_diffuse;
+
+            // reset the descriptor generation if using the default texture
+            *descriptor_generation = INVALID_ID;
+        }
 
         // check if the descriptor needs to be updated
         if (t && (*descriptor_generation == INVALID_ID ||

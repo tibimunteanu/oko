@@ -3,6 +3,7 @@
 #include <defines.h>
 
 #include "core/log.h"
+#include "core/event.h"
 #include "core/memory.h"
 #include "core/input.h"
 #include "core/application.h"

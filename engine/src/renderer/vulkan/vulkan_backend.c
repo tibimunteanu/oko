@@ -550,7 +550,9 @@ b8 vulkan_renderer_backend_initialize(
     OKO_INFO("Vulkan sync objects created.")
 
     // create builtin shaders
-    if (!vulkan_object_shader_create(&context, &context.object_shader)) {
+    if (!vulkan_object_shader_create(
+            &context, backend->default_diffuse, &context.object_shader
+        )) {
         OKO_ERROR("Failed to create builtin shaders!");
         return false;
     }
@@ -611,10 +613,8 @@ b8 vulkan_renderer_backend_initialize(
 
     u32 object_id = 0;
     if (!vulkan_object_shader_acquire_resources(
-        &context,
-        &context.object_shader,
-        &object_id
-    )) {
+            &context, &context.object_shader, &object_id
+        )) {
         OKO_ERROR("Failed to acquire shader resources!");
         return false;
     }
@@ -1065,8 +1065,6 @@ void vulkan_renderer_create_texture(
         &context, &data->image, staging.handle, &temp_buffer
     );
 
-    vulkan_buffer_destroy(&context, &staging);
-
     // transition from optimal for receiving data to optimal for shader
     // reading
     vulkan_image_transition_layout(
@@ -1079,6 +1077,8 @@ void vulkan_renderer_create_texture(
     );
 
     vulkan_command_buffer_end_single_use(&context, pool, &temp_buffer, queue);
+
+    vulkan_buffer_destroy(&context, &staging);
 
     // create a sampler for the texture
     VkSamplerCreateInfo sampler_info = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -1122,15 +1122,19 @@ void vulkan_renderer_destroy_texture(texture* texture) {
 
     vulkan_texture_data* data = (vulkan_texture_data*)texture->internal_data;
 
-    vulkan_image_destroy(&context, &data->image);
-    memory_zero(&data->image, sizeof(vulkan_image));
-    vkDestroySampler(
-        context.device.logical_device, data->sampler, context.allocator
-    );
-    data->sampler = 0;
+    if (data) {
+        vulkan_image_destroy(&context, &data->image);
+        memory_zero(&data->image, sizeof(vulkan_image));
+        vkDestroySampler(
+            context.device.logical_device, data->sampler, context.allocator
+        );
+        data->sampler = 0;
 
-    memory_free(
-        texture->internal_data, sizeof(vulkan_texture_data), MEMORY_TAG_TEXTURE
-    );
+        memory_free(
+            texture->internal_data,
+            sizeof(vulkan_texture_data),
+            MEMORY_TAG_TEXTURE
+        );
+    }
     memory_zero(texture, sizeof(texture));
 }

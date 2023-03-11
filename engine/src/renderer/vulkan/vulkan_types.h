@@ -159,6 +159,9 @@ typedef struct vulkan_object_shader {
     vulkan_object_shader_object_state
         object_states[VULKAN_OBJECT_MAX_OBJECT_COUNT];
 
+    // pointers to default textures
+    texture* default_diffuse;
+
     // pipeline
     vulkan_pipeline pipeline;
 } vulkan_object_shader;

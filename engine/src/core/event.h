@@ -42,5 +42,12 @@ typedef enum event_system_codes {
     EVENT_MOUSE_MOVED = 0x06,
     EVENT_MOUSE_WHEEL = 0x07,
     EVENT_RESIZED = 0x08,
+
+    EVENT_CODE_DEBUG0 = 0x10,
+    EVENT_CODE_DEBUG1 = 0x11,
+    EVENT_CODE_DEBUG2 = 0x12,
+    EVENT_CODE_DEBUG3 = 0x13,
+    EVENT_CODE_DEBUG4 = 0x14,
+
     EVENT_MAX_CODE = 0xFF
 } event_system_codes;

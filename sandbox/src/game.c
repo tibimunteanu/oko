@@ -88,6 +88,14 @@ b8 game_update(game* game_inst, f32 delta_time) {
         );
     }
 
+    // TODO: temporary
+    if (input_is_key_up('T') && input_was_key_down('T')) {
+        OKO_DEBUG("Swapping texture!");
+        event_context context = {};
+        event_fire(EVENT_CODE_DEBUG0, game_inst, context);
+    }
+    // TODO: end temporary
+
     // HACK: temp hack to move camera around
     f32 move_speed = 50.0f;
     vec3 velocity = vec3_zero();
